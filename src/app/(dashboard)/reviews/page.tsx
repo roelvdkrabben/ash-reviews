@@ -1,8 +1,18 @@
 import { db } from '@/lib/db'
 import { reviews, products, shops } from '@/lib/schema'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, and } from 'drizzle-orm'
+import Link from 'next/link'
+import { ReviewActions } from './ReviewActions'
+import { ReviewFilters } from './ReviewFilters'
 
-export default async function ReviewsPage() {
+interface PageProps {
+  searchParams: Promise<{ status?: string }>
+}
+
+export default async function ReviewsPage({ searchParams }: PageProps) {
+  const params = await searchParams
+  const statusFilter = params.status || 'all'
+
   let reviewList: Array<{
     review: typeof reviews.$inferSelect
     product: typeof products.$inferSelect | null
@@ -11,7 +21,7 @@ export default async function ReviewsPage() {
   let error: string | null = null
 
   try {
-    const result = await db
+    const baseQuery = db
       .select({
         review: reviews,
         product: products,
@@ -20,10 +30,17 @@ export default async function ReviewsPage() {
       .from(reviews)
       .leftJoin(products, eq(reviews.productId, products.id))
       .leftJoin(shops, eq(reviews.shopId, shops.id))
-      .orderBy(desc(reviews.createdAt))
-      .limit(50)
 
-    reviewList = result
+    if (statusFilter !== 'all') {
+      reviewList = await baseQuery
+        .where(eq(reviews.status, statusFilter))
+        .orderBy(desc(reviews.createdAt))
+        .limit(100)
+    } else {
+      reviewList = await baseQuery
+        .orderBy(desc(reviews.createdAt))
+        .limit(100)
+    }
   } catch (e) {
     error = e instanceof Error ? e.message : 'Onbekende fout'
   }
@@ -42,6 +59,14 @@ export default async function ReviewsPage() {
     failed: 'Mislukt',
   }
 
+  // Count by status
+  const counts = {
+    all: reviewList.length,
+    pending: reviewList.filter(r => r.review.status === 'pending').length,
+    approved: reviewList.filter(r => r.review.status === 'approved').length,
+    posted: reviewList.filter(r => r.review.status === 'posted').length,
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -52,22 +77,7 @@ export default async function ReviewsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          <a href="#" className="border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-            Alle
-          </a>
-          <a href="#" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-            Wachtend
-          </a>
-          <a href="#" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-            Goedgekeurd
-          </a>
-          <a href="#" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-            Gepost
-          </a>
-        </nav>
-      </div>
+      <ReviewFilters currentStatus={statusFilter} counts={counts} />
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
@@ -83,14 +93,18 @@ export default async function ReviewsPage() {
             </svg>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">Geen reviews</h3>
-          <p className="text-gray-500">Er zijn nog geen reviews gegenereerd.</p>
+          <p className="text-gray-500">
+            {statusFilter === 'all' 
+              ? 'Er zijn nog geen reviews gegenereerd.' 
+              : `Geen reviews met status "${statusLabels[statusFilter as keyof typeof statusLabels] || statusFilter}".`}
+          </p>
         </div>
       )}
 
       {reviewList.length > 0 && (
         <div className="space-y-4">
-          {reviewList.map(({ review }) => (
-            <div key={review.id} className="bg-white rounded-lg shadow p-6">
+          {reviewList.map(({ review, product }) => (
+            <div key={review.id} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
@@ -111,21 +125,40 @@ export default async function ReviewsPage() {
                     </div>
                     <span className="text-sm text-gray-500">{review.reviewerName}</span>
                   </div>
+                  
+                  {product && (
+                    <p className="text-xs text-gray-400 mb-2">
+                      Product: {product.name}
+                    </p>
+                  )}
+                  
                   {review.title && (
                     <h3 className="font-medium text-gray-900 mb-1">{review.title}</h3>
                   )}
                   <p className="text-gray-700">{review.content}</p>
+                  
+                  <p className="text-xs text-gray-400 mt-2">
+                    {new Date(review.createdAt!).toLocaleDateString('nl-NL', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
                 </div>
-                {review.status === 'pending' && (
-                  <div className="flex gap-2 ml-4">
-                    <button className="px-3 py-1 text-sm text-green-600 border border-green-600 rounded hover:bg-green-50">
-                      Goedkeuren
-                    </button>
-                    <button className="px-3 py-1 text-sm text-red-600 border border-red-600 rounded hover:bg-red-50">
-                      Afwijzen
-                    </button>
-                  </div>
-                )}
+                
+                <div className="flex items-center gap-2 ml-4">
+                  <Link 
+                    href={`/reviews/${review.id}`}
+                    className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    Bekijk
+                  </Link>
+                  {review.status === 'pending' && (
+                    <ReviewActions reviewId={review.id} />
+                  )}
+                </div>
               </div>
             </div>
           ))}

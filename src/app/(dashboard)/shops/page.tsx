@@ -77,31 +77,37 @@ export default async function ShopsPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {shopList.map((shop) => (
-                <tr key={shop.id} className="hover:bg-gray-50">
+                <tr key={shop.id} className="hover:bg-gray-50 group">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{shop.name}</div>
-                    <div className="text-sm text-gray-500">{shop.slug}</div>
+                    <Link href={`/shops/${shop.id}`} className="block">
+                      <div className="font-medium text-gray-900 group-hover:text-blue-600">{shop.name}</div>
+                      <div className="text-sm text-gray-500">{shop.slug}</div>
+                    </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {shop.domain}
+                    <Link href={`/shops/${shop.id}`} className="block">
+                      {shop.domain}
+                    </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {shop.lightspeedApiKey ? (
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        Geconfigureerd
-                      </span>
-                    ) : (
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                        Niet geconfigureerd
-                      </span>
-                    )}
+                    <Link href={`/shops/${shop.id}`} className="block">
+                      {shop.lightspeedApiKey ? (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                          Geconfigureerd
+                        </span>
+                      ) : (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                          Niet geconfigureerd
+                        </span>
+                      )}
+                    </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <Link
                       href={`/shops/${shop.id}`}
-                      className="text-blue-600 hover:text-blue-800"
+                      className="text-blue-600 hover:text-blue-800 font-medium"
                     >
-                      Beheren
+                      Beheren →
                     </Link>
                   </td>
                 </tr>
