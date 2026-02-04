@@ -106,7 +106,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
 
       {reviewList.length > 0 && (
         <div className="space-y-4">
-          {reviewList.map(({ review, product }) => (
+          {reviewList.map(({ review, product, shop }) => (
             <div key={review.id} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
@@ -134,11 +134,21 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
                     <span className="text-sm text-gray-500">{review.reviewerName}</span>
                   </div>
                   
-                  {product && (
-                    <p className="text-xs text-gray-400 mb-2">
-                      Product: {product.name}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    {shop && (
+                      <span className="px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700">
+                        {shop.name}
+                      </span>
+                    )}
+                    {product && (
+                      <Link 
+                        href={`/shops/${product.shopId}/products?product=${product.id}`}
+                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {product.name}
+                      </Link>
+                    )}
+                  </div>
                   
                   {review.title && (
                     <h3 className="font-medium text-gray-900 mb-1">{review.title}</h3>
