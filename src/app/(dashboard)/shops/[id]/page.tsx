@@ -5,6 +5,49 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Shop } from '@/lib/schema'
 
+interface SyncResult {
+  success: boolean
+  productsSync: {
+    created: number
+    updated: number
+    total: number
+  }
+  reviewsImport: {
+    imported: number
+    skipped: number
+    failed: number
+  }
+  reviewsLinked: number
+  error?: string
+  duration: number
+}
+
+/**
+ * Format relative time in Dutch
+ */
+function formatRelativeTime(date: Date | string | null): string {
+  if (!date) return 'Nog nooit'
+  
+  const now = new Date()
+  const then = new Date(date)
+  const diffMs = now.getTime() - then.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+  
+  if (diffMins < 1) return 'Zojuist'
+  if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? 'minuut' : 'minuten'} geleden`
+  if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'uur' : 'uur'} geleden`
+  if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? 'dag' : 'dagen'} geleden`
+  
+  return then.toLocaleDateString('nl-NL', { 
+    day: 'numeric', 
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 export default function ShopDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -13,8 +56,10 @@ export default function ShopDetailPage() {
   const [shop, setShop] = useState<Shop | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null)
 
   // Form state
   const [apiKey, setApiKey] = useState('')
@@ -70,6 +115,33 @@ export default function ShopDetailPage() {
     }
   }
 
+  const handleSync = async () => {
+    setSyncing(true)
+    setError(null)
+    setSuccess(null)
+    setSyncResult(null)
+
+    try {
+      const res = await fetch(`/api/shops/${shopId}/sync-all`, {
+        method: 'POST',
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Synchronisatie mislukt')
+      }
+
+      setSyncResult(data)
+      setSuccess('Synchronisatie voltooid!')
+      await fetchShop() // Refresh to get updated timestamps
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Synchronisatie mislukt')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   const handleDelete = async () => {
     if (!confirm('Weet je zeker dat je deze shop wilt verwijderen? Dit verwijdert ook alle producten en reviews.')) {
       return
@@ -107,6 +179,8 @@ export default function ShopDetailPage() {
     )
   }
 
+  const hasApiCredentials = shop.lightspeedApiKey && shop.lightspeedApiSecret
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -142,6 +216,83 @@ export default function ShopDetailPage() {
           {success}
         </div>
       )}
+
+      {/* Sync Result Details */}
+      {syncResult && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg">
+          <div className="font-medium mb-2">Synchronisatie resultaat:</div>
+          <ul className="text-sm space-y-1">
+            <li>✓ Producten: {syncResult.productsSync.created} nieuw, {syncResult.productsSync.updated} bijgewerkt</li>
+            <li>✓ Reviews: {syncResult.reviewsImport.imported} geïmporteerd, {syncResult.reviewsImport.skipped} overgeslagen</li>
+            <li>✓ Reviews gekoppeld: {syncResult.reviewsLinked}</li>
+            <li className="text-gray-600">Duur: {(syncResult.duration / 1000).toFixed(1)}s</li>
+          </ul>
+        </div>
+      )}
+
+      {/* Sync Section */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-medium text-gray-900">Synchronisatie</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Synchroniseer producten en reviews van Lightspeed.
+          </p>
+        </div>
+
+        <div className="px-6 py-4">
+          {/* Sync Timestamps */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <div className="text-2xl">📦</div>
+              <div>
+                <div className="text-sm text-gray-500">Laatste producten sync</div>
+                <div className="font-medium text-gray-900">
+                  {formatRelativeTime(shop.lastProductsSync)}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <div className="text-2xl">⭐</div>
+              <div>
+                <div className="text-sm text-gray-500">Laatste reviews sync</div>
+                <div className="font-medium text-gray-900">
+                  {formatRelativeTime(shop.lastReviewsSync)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sync Button */}
+          <button
+            onClick={handleSync}
+            disabled={syncing || !hasApiCredentials}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-white font-medium transition-colors
+              ${syncing 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : hasApiCredentials
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-gray-400 cursor-not-allowed'
+              }`}
+          >
+            {syncing ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                Synchroniseren...
+              </>
+            ) : (
+              <>
+                🔄 Sync Producten & Reviews
+              </>
+            )}
+          </button>
+
+          {!hasApiCredentials && (
+            <p className="text-sm text-amber-600 mt-2 text-center">
+              Configureer eerst je Lightspeed API credentials hieronder.
+            </p>
+          )}
+        </div>
+      </div>
 
       {/* API Configuration */}
       <div className="bg-white rounded-lg shadow">

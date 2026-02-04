@@ -10,6 +10,8 @@ export const shops = pgTable('shops', {
   lightspeedApiKey: text('lightspeed_api_key'),
   lightspeedApiSecret: text('lightspeed_api_secret'),
   settings: jsonb('settings').default({}),
+  lastProductsSync: timestamp('last_products_sync', { withTimezone: true }),
+  lastReviewsSync: timestamp('last_reviews_sync', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })
