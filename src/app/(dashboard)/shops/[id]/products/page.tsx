@@ -15,6 +15,8 @@ export default function ShopProductsPage() {
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     try {
@@ -66,6 +68,34 @@ export default function ShopProductsPage() {
       setError(e instanceof Error ? e.message : 'Sync mislukt')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const handleGenerateReview = async (productId: string, count: number = 1) => {
+    setGeneratingFor(productId)
+    setError(null)
+    setSuccessMessage(null)
+
+    try {
+      const res = await fetch('/api/reviews/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, count }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Review genereren mislukt')
+      }
+
+      setSuccessMessage(`✅ ${count} review(s) gegenereerd!`)
+      // Refresh products to update review count
+      await fetchData()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Review genereren mislukt')
+    } finally {
+      setGeneratingFor(null)
     }
   }
 
@@ -157,6 +187,15 @@ export default function ShopProductsPage() {
         </div>
       )}
 
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex justify-between items-center">
+          <span>{successMessage}</span>
+          <Link href={`/shops/${shopId}/reviews`} className="underline font-medium hover:text-green-800">
+            Bekijk reviews →
+          </Link>
+        </div>
+      )}
+
       {!shop?.lightspeedApiKey && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg">
           ⚠️ Lightspeed API credentials niet geconfigureerd.{' '}
@@ -197,6 +236,9 @@ export default function ShopProductsPage() {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Laatst gesync
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acties
                 </th>
               </tr>
             </thead>
@@ -242,6 +284,36 @@ export default function ShopProductsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatDate(product.syncedAt)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleGenerateReview(product.id)}
+                        disabled={generatingFor === product.id}
+                        className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md
+                          ${generatingFor === product.id
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                          }`}
+                      >
+                        {generatingFor === product.id ? (
+                          <>
+                            <svg className="animate-spin -ml-0.5 mr-1.5 h-3 w-3" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Bezig...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="-ml-0.5 mr-1.5 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                            </svg>
+                            Review genereren
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
