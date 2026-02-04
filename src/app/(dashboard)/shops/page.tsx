@@ -3,6 +3,10 @@ import { shops } from '@/lib/schema'
 import { desc } from 'drizzle-orm'
 import Link from 'next/link'
 
+// Disable caching for this page
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function ShopsPage() {
   let shopList: typeof shops.$inferSelect[] = []
   let error: string | null = null
