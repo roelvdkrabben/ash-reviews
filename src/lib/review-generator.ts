@@ -33,7 +33,7 @@ function getModel() {
   }
   console.log('[ReviewGenerator] Initializing Gemini with key:', apiKey.substring(0, 10) + '...')
   const genAI = new GoogleGenerativeAI(apiKey)
-  return genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  return genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 }
 
 // Build review generation prompt
