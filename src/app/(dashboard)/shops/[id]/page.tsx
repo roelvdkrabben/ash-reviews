@@ -47,6 +47,7 @@ export default function ShopDetailPage() {
   const shopId = params.id as string
 
   const [shop, setShop] = useState<Shop | null>(null)
+  const [allShops, setAllShops] = useState<Shop[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -72,9 +73,10 @@ export default function ShopDetailPage() {
 
   const fetchShop = useCallback(async () => {
     try {
-      const [shopRes, settingsRes] = await Promise.all([
+      const [shopRes, settingsRes, allShopsRes] = await Promise.all([
         fetch(`/api/shops/${shopId}`),
-        fetch(`/api/shops/${shopId}/settings`)
+        fetch(`/api/shops/${shopId}/settings`),
+        fetch(`/api/shops`)
       ])
       
       if (!shopRes.ok) throw new Error('Shop niet gevonden')
@@ -82,6 +84,11 @@ export default function ShopDetailPage() {
       setShop(shopData)
       setApiKey(shopData.lightspeedApiKey || '')
       setApiSecret(shopData.lightspeedApiSecret || '')
+      
+      if (allShopsRes.ok) {
+        const shopsData = await allShopsRes.json()
+        setAllShops(shopsData)
+      }
 
       if (settingsRes.ok) {
         const settings = await settingsRes.json()
@@ -205,9 +212,19 @@ export default function ShopDetailPage() {
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
             <Link href="/shops" className="hover:text-gray-700">Shops</Link>
             <span>→</span>
-            <span>{shop.name}</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">{shop.name}</h1>
+          <div className="flex items-center gap-3">
+            <select
+              value={shopId}
+              onChange={(e) => router.push(`/shops/${e.target.value}`)}
+              className="text-2xl font-bold text-gray-900 bg-transparent border-none cursor-pointer hover:text-blue-600 focus:outline-none focus:ring-0 pr-8 -ml-1"
+              style={{ appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0 center', backgroundSize: '1.5rem' }}
+            >
+              {allShops.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
           <p className="text-gray-600 mt-1">{shop.domain}</p>
         </div>
         <Link href={`/shops/${shopId}/products`} className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
