@@ -22,10 +22,10 @@ export async function POST(
 
   const { id: shopId } = await params
 
-  // Check if ANTHROPIC_API_KEY is configured
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // Check if GEMINI_API_KEY is configured
+  if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json(
-      { error: 'ANTHROPIC_API_KEY niet geconfigureerd' },
+      { error: 'GEMINI_API_KEY niet geconfigureerd' },
       { status: 500 }
     )
   }
