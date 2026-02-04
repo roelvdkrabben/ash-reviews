@@ -102,6 +102,14 @@ export async function POST(request: NextRequest) {
       count
     )
 
+    // Check if any reviews were generated
+    if (generatedReviews.length === 0) {
+      return NextResponse.json(
+        { error: 'Geen reviews gegenereerd. Controleer of GEMINI_API_KEY is geconfigureerd.' },
+        { status: 500 }
+      )
+    }
+
     // Store reviews in database
     const insertedReviews = await db
       .insert(reviews)

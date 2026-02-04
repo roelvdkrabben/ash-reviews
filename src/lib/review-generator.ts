@@ -28,8 +28,10 @@ export interface GeneratedReview {
 function getModel() {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
+    console.error('[ReviewGenerator] GEMINI_API_KEY is not set!')
     throw new Error('GEMINI_API_KEY environment variable is required')
   }
+  console.log('[ReviewGenerator] Initializing Gemini with key:', apiKey.substring(0, 10) + '...')
   const genAI = new GoogleGenerativeAI(apiKey)
   return genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 }
