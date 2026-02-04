@@ -2,8 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 
 const navItems = [
   { href: '/', label: 'Dashboard' },
@@ -13,12 +12,9 @@ const navItems = [
 
 export default function Navbar() {
   const pathname = usePathname()
-  const router = useRouter()
 
-  const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
+  const handleLogout = () => {
+    signOut({ callbackUrl: '/login' })
   }
 
   return (

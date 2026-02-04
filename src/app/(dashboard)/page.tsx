@@ -1,14 +1,13 @@
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/lib/auth'
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const session = await auth()
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Welkom, {user?.email}</p>
+        <p className="text-gray-600 mt-1">Welkom, {session?.user?.email}</p>
       </div>
 
       {/* Stats Grid */}

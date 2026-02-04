@@ -1,6 +1,6 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
+import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
@@ -8,19 +8,8 @@ function LoginContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
 
-  const handleGoogleLogin = async () => {
-    const supabase = createClient()
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-
-    if (error) {
-      console.error('Login error:', error.message)
-    }
+  const handleGoogleLogin = () => {
+    signIn('google', { callbackUrl: '/' })
   }
 
   return (
@@ -37,7 +26,13 @@ function LoginContent() {
           </div>
         )}
 
-        {error === 'auth_failed' && (
+        {error === 'OAuthAccountNotLinked' && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            Dit account is al gekoppeld aan een andere provider.
+          </div>
+        )}
+
+        {error && !['unauthorized', 'OAuthAccountNotLinked'].includes(error) && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
             Authenticatie mislukt. Probeer het opnieuw.
           </div>

@@ -1,9 +1,28 @@
-import { type NextRequest } from 'next/server'
-import { updateSession } from '@/lib/supabase/middleware'
+import { auth } from '@/lib/auth'
+import { NextResponse } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  return await updateSession(request)
-}
+export default auth((req) => {
+  const isLoggedIn = !!req.auth
+
+  const isAuthRoute = req.nextUrl.pathname.startsWith('/api/auth') ||
+    req.nextUrl.pathname === '/login'
+
+  // Allow auth routes
+  if (isAuthRoute) {
+    // Redirect logged-in users away from login page
+    if (isLoggedIn && req.nextUrl.pathname === '/login') {
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+    return NextResponse.next()
+  }
+
+  // Require auth for all other routes
+  if (!isLoggedIn) {
+    return NextResponse.redirect(new URL('/login', req.url))
+  }
+
+  return NextResponse.next()
+})
 
 export const config = {
   matcher: [
@@ -12,7 +31,6 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],

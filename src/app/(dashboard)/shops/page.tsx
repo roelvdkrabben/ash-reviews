@@ -1,13 +1,17 @@
-import { createClient } from '@/lib/supabase/server'
+import { db } from '@/lib/db'
+import { shops } from '@/lib/schema'
+import { desc } from 'drizzle-orm'
 import Link from 'next/link'
 
 export default async function ShopsPage() {
-  const supabase = await createClient()
-  
-  const { data: shops, error } = await supabase
-    .from('shops')
-    .select('*')
-    .order('created_at', { ascending: false })
+  let shopList: typeof shops.$inferSelect[] = []
+  let error: string | null = null
+
+  try {
+    shopList = await db.select().from(shops).orderBy(desc(shops.createdAt))
+  } catch (e) {
+    error = e instanceof Error ? e.message : 'Onbekende fout'
+  }
 
   return (
     <div className="space-y-6">
@@ -26,11 +30,11 @@ export default async function ShopsPage() {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          Fout bij laden: {error.message}
+          Fout bij laden: {error}
         </div>
       )}
 
-      {!error && (!shops || shops.length === 0) && (
+      {!error && shopList.length === 0 && (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <div className="text-gray-400 mb-4">
             <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -48,7 +52,7 @@ export default async function ShopsPage() {
         </div>
       )}
 
-      {shops && shops.length > 0 && (
+      {shopList.length > 0 && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -68,7 +72,7 @@ export default async function ShopsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {shops.map((shop) => (
+              {shopList.map((shop) => (
                 <tr key={shop.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">{shop.name}</div>
@@ -78,7 +82,7 @@ export default async function ShopsPage() {
                     {shop.domain}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {shop.lightspeed_api_key ? (
+                    {shop.lightspeedApiKey ? (
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                         Geconfigureerd
                       </span>

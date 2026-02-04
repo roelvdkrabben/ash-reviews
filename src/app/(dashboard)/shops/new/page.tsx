@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 
 export default function NewShopPage() {
   const router = useRouter()
@@ -15,32 +14,32 @@ export default function NewShopPage() {
     setError(null)
 
     const formData = new FormData(e.currentTarget)
-    const name = formData.get('name') as string
-    const slug = formData.get('slug') as string
-    const domain = formData.get('domain') as string
-    const lightspeed_api_key = formData.get('lightspeed_api_key') as string
-    const lightspeed_api_secret = formData.get('lightspeed_api_secret') as string
-
-    const supabase = createClient()
-
-    const { error: insertError } = await supabase
-      .from('shops')
-      .insert({
-        name,
-        slug,
-        domain,
-        lightspeed_api_key: lightspeed_api_key || null,
-        lightspeed_api_secret: lightspeed_api_secret || null,
-      })
-
-    if (insertError) {
-      setError(insertError.message)
-      setLoading(false)
-      return
+    const data = {
+      name: formData.get('name') as string,
+      slug: formData.get('slug') as string,
+      domain: formData.get('domain') as string,
+      lightspeedApiKey: (formData.get('lightspeed_api_key') as string) || null,
+      lightspeedApiSecret: (formData.get('lightspeed_api_secret') as string) || null,
     }
 
-    router.push('/shops')
-    router.refresh()
+    try {
+      const res = await fetch('/api/shops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      if (!res.ok) {
+        const body = await res.json()
+        throw new Error(body.error || 'Fout bij opslaan')
+      }
+
+      router.push('/shops')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Onbekende fout')
+      setLoading(false)
+    }
   }
 
   const generateSlug = (name: string) => {

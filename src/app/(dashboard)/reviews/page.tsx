@@ -1,17 +1,32 @@
-import { createClient } from '@/lib/supabase/server'
+import { db } from '@/lib/db'
+import { reviews, products, shops } from '@/lib/schema'
+import { desc, eq } from 'drizzle-orm'
 
 export default async function ReviewsPage() {
-  const supabase = await createClient()
-  
-  const { data: reviews, error } = await supabase
-    .from('reviews')
-    .select(`
-      *,
-      products (name, image_url),
-      shops (name)
-    `)
-    .order('created_at', { ascending: false })
-    .limit(50)
+  let reviewList: Array<{
+    review: typeof reviews.$inferSelect
+    product: typeof products.$inferSelect | null
+    shop: typeof shops.$inferSelect | null
+  }> = []
+  let error: string | null = null
+
+  try {
+    const result = await db
+      .select({
+        review: reviews,
+        product: products,
+        shop: shops,
+      })
+      .from(reviews)
+      .leftJoin(products, eq(reviews.productId, products.id))
+      .leftJoin(shops, eq(reviews.shopId, shops.id))
+      .orderBy(desc(reviews.createdAt))
+      .limit(50)
+
+    reviewList = result
+  } catch (e) {
+    error = e instanceof Error ? e.message : 'Onbekende fout'
+  }
 
   const statusColors = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -56,11 +71,11 @@ export default async function ReviewsPage() {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          Fout bij laden: {error.message}
+          Fout bij laden: {error}
         </div>
       )}
 
-      {!error && (!reviews || reviews.length === 0) && (
+      {!error && reviewList.length === 0 && (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <div className="text-gray-400 mb-4">
             <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -72,15 +87,15 @@ export default async function ReviewsPage() {
         </div>
       )}
 
-      {reviews && reviews.length > 0 && (
+      {reviewList.length > 0 && (
         <div className="space-y-4">
-          {reviews.map((review) => (
+          {reviewList.map(({ review }) => (
             <div key={review.id} className="bg-white rounded-lg shadow p-6">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[review.status as keyof typeof statusColors]}`}>
-                      {statusLabels[review.status as keyof typeof statusLabels]}
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[review.status as keyof typeof statusColors] || statusColors.pending}`}>
+                      {statusLabels[review.status as keyof typeof statusLabels] || review.status}
                     </span>
                     <div className="flex items-center">
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -94,7 +109,7 @@ export default async function ReviewsPage() {
                         </svg>
                       ))}
                     </div>
-                    <span className="text-sm text-gray-500">{review.reviewer_name}</span>
+                    <span className="text-sm text-gray-500">{review.reviewerName}</span>
                   </div>
                   {review.title && (
                     <h3 className="font-medium text-gray-900 mb-1">{review.title}</h3>
