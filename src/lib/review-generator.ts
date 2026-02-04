@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import Anthropic from '@anthropic-ai/sdk'
 import { generateDutchName } from './names'
 
 // Types
@@ -24,16 +24,15 @@ export interface GeneratedReview {
   content: string
 }
 
-// Initialize Gemini client
-function getModel() {
-  const apiKey = process.env.GEMINI_API_KEY
+// Initialize Anthropic client
+function getClient() {
+  const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    console.error('[ReviewGenerator] GEMINI_API_KEY is not set!')
-    throw new Error('GEMINI_API_KEY environment variable is required')
+    console.error('[ReviewGenerator] ANTHROPIC_API_KEY is not set!')
+    throw new Error('ANTHROPIC_API_KEY environment variable is required')
   }
-  console.log('[ReviewGenerator] Initializing Gemini with key:', apiKey.substring(0, 10) + '...')
-  const genAI = new GoogleGenerativeAI(apiKey)
-  return genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+  console.log('[ReviewGenerator] Initializing Claude with key:', apiKey.substring(0, 10) + '...')
+  return new Anthropic({ apiKey })
 }
 
 // Build review generation prompt
@@ -106,7 +105,7 @@ Geef je antwoord in exact dit JSON format (alleen JSON, geen andere tekst):
  * Genereer een enkele review
  */
 export async function generateReview(input: ReviewInput): Promise<GeneratedReview> {
-  const model = getModel()
+  const client = getClient()
   
   // Random style kiezen
   const styles: Array<'short' | 'medium' | 'long'> = ['short', 'medium', 'long']
@@ -124,8 +123,16 @@ export async function generateReview(input: ReviewInput): Promise<GeneratedRevie
 
   const prompt = buildPrompt(input, style)
 
-  const result = await model.generateContent(prompt)
-  const responseText = result.response.text()
+  const message = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 500,
+    messages: [
+      { role: 'user', content: prompt }
+    ]
+  })
+  
+  // Extract text from response
+  const responseText = message.content[0].type === 'text' ? message.content[0].text : ''
   
   // Extract JSON from response
   const jsonMatch = responseText.match(/\{[\s\S]*\}/)

@@ -34,11 +34,11 @@ export async function GET(request: Request) {
     )
   }
 
-  // Check if GEMINI_API_KEY is configured
-  if (!process.env.GEMINI_API_KEY) {
-    console.error('[CRON] GEMINI_API_KEY is not configured')
+  // Check if ANTHROPIC_API_KEY is configured
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('[CRON] ANTHROPIC_API_KEY is not configured')
     return NextResponse.json(
-      { error: 'GEMINI_API_KEY not configured' },
+      { error: 'ANTHROPIC_API_KEY not configured' },
       { status: 500 }
     )
   }
