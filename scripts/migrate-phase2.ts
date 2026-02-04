@@ -1,3 +1,4 @@
+// Run with: $env:DATABASE_URL="..."; npx tsx scripts/migrate-phase2.ts
 import { db } from '../src/lib/db'
 import { sql } from 'drizzle-orm'
 

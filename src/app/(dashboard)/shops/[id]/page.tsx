@@ -196,12 +196,20 @@ export default function ShopDetailPage() {
           <h1 className="text-2xl font-bold text-gray-900">{shop.name}</h1>
           <p className="text-gray-600 mt-1">{shop.domain}</p>
         </div>
-        <Link
-          href={`/shops/${shopId}/products`}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-        >
-          Bekijk producten →
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href={`/shops/${shopId}/settings`}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          >
+            ⚙️ Instellingen
+          </Link>
+          <Link
+            href={`/shops/${shopId}/products`}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          >
+            Bekijk producten →
+          </Link>
+        </div>
       </div>
 
       {/* Messages */}
