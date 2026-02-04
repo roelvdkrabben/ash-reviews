@@ -89,6 +89,23 @@ export const generationJobs = pgTable('generation_jobs', {
   index('generation_jobs_shop_id_idx').on(table.shopId),
 ])
 
+// Product queue table
+export const productQueue = pgTable('product_queue', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  shopId: uuid('shop_id').notNull().references(() => shops.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  status: text('status').notNull().default('pending'), // pending, generating, completed, failed
+  priority: integer('priority').default(0),
+  addedAt: timestamp('added_at', { withTimezone: true }).defaultNow(),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  reviewId: uuid('review_id').references(() => reviews.id),
+  error: text('error'),
+}, (table) => [
+  index('idx_product_queue_shop').on(table.shopId),
+  index('idx_product_queue_status').on(table.status),
+])
+
 // Relations
 export const shopsRelations = relations(shops, ({ many }) => ({
   products: many(products),
@@ -126,6 +143,21 @@ export const generationJobsRelations = relations(generationJobs, ({ one }) => ({
   }),
 }))
 
+export const productQueueRelations = relations(productQueue, ({ one }) => ({
+  shop: one(shops, {
+    fields: [productQueue.shopId],
+    references: [shops.id],
+  }),
+  product: one(products, {
+    fields: [productQueue.productId],
+    references: [products.id],
+  }),
+  review: one(reviews, {
+    fields: [productQueue.reviewId],
+    references: [reviews.id],
+  }),
+}))
+
 // Types
 export type Shop = typeof shops.$inferSelect
 export type NewShop = typeof shops.$inferInsert
@@ -135,3 +167,5 @@ export type Review = typeof reviews.$inferSelect
 export type NewReview = typeof reviews.$inferInsert
 export type GenerationJob = typeof generationJobs.$inferSelect
 export type NewGenerationJob = typeof generationJobs.$inferInsert
+export type ProductQueueItem = typeof productQueue.$inferSelect
+export type NewProductQueueItem = typeof productQueue.$inferInsert
