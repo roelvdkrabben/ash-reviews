@@ -10,6 +10,7 @@ interface ReviewFiltersProps {
     pending: number
     approved: number
     posted: number
+    imported: number
   }
 }
 
@@ -19,6 +20,7 @@ export function ReviewFilters({ currentStatus, counts }: ReviewFiltersProps) {
     { key: 'pending', label: 'Wachtend', count: counts.pending },
     { key: 'approved', label: 'Goedgekeurd', count: counts.approved },
     { key: 'posted', label: 'Gepost', count: counts.posted },
+    { key: 'imported', label: 'Geïmporteerd', count: counts.imported },
   ]
 
   return (

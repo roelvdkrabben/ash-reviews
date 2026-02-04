@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { reviews, products, shops } from '@/lib/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
 import { generateBatch, type GeneratedReview } from '@/lib/review-generator'
 
 export async function POST(request: NextRequest) {
@@ -57,12 +57,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get existing reviews for this product (for inspiration)
-    const existingReviews = await db
+    // Get imported reviews first (they're real customer reviews - best for inspiration)
+    const importedReviews = await db
       .select({ content: reviews.content })
       .from(reviews)
-      .where(eq(reviews.productId, productId))
+      .where(
+        and(
+          eq(reviews.productId, productId),
+          eq(reviews.status, 'imported')
+        )
+      )
       .limit(5)
+    
+    // If not enough imported reviews, get other reviews too
+    let existingReviews = importedReviews
+    if (importedReviews.length < 3) {
+      const otherReviews = await db
+        .select({ content: reviews.content })
+        .from(reviews)
+        .where(eq(reviews.productId, productId))
+        .limit(5)
+      
+      // Combine but prioritize imported ones
+      const seen = new Set(importedReviews.map(r => r.content))
+      const unique = otherReviews.filter(r => !seen.has(r.content))
+      existingReviews = [...importedReviews, ...unique].slice(0, 5)
+    }
 
     // Generate reviews
     const generatedReviews = await generateBatch(

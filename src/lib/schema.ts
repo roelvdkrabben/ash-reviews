@@ -39,7 +39,7 @@ export const reviews = pgTable('reviews', {
   id: uuid('id').primaryKey().defaultRandom(),
   shopId: uuid('shop_id').references(() => shops.id, { onDelete: 'cascade' }),
   productId: uuid('product_id').references(() => products.id, { onDelete: 'cascade' }),
-  status: text('status').default('pending').notNull(), // pending, approved, posted, failed
+  status: text('status').default('pending').notNull(), // pending, approved, posted, failed, imported (imported = existing reviews from Lightspeed)
   reviewerName: text('reviewer_name').notNull(),
   rating: integer('rating').notNull(),
   title: text('title'),

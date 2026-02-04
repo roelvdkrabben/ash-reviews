@@ -13,8 +13,10 @@ export default function ShopProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
+  const [importMessage, setImportMessage] = useState<string | null>(null)
   const [generatingFor, setGeneratingFor] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
@@ -68,6 +70,30 @@ export default function ShopProductsPage() {
       setError(e instanceof Error ? e.message : 'Sync mislukt')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const handleImportReviews = async () => {
+    setImporting(true)
+    setImportMessage(null)
+    setError(null)
+
+    try {
+      const res = await fetch(`/api/shops/${shopId}/import-reviews`, {
+        method: 'POST',
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Import mislukt')
+      }
+
+      setImportMessage(data.message)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Import mislukt')
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -146,6 +172,32 @@ export default function ShopProductsPage() {
         </div>
         <div className="flex gap-3">
           <button
+            onClick={handleImportReviews}
+            disabled={importing || !shop?.lightspeedApiKey}
+            className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md 
+              ${importing || !shop?.lightspeedApiKey
+                ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+          >
+            {importing ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Importeren...
+              </>
+            ) : (
+              <>
+                <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Reviews importeren
+              </>
+            )}
+          </button>
+          <button
             onClick={handleSync}
             disabled={syncing || !shop?.lightspeedApiKey}
             className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white 
@@ -184,6 +236,15 @@ export default function ShopProductsPage() {
       {syncMessage && (
         <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
           {syncMessage}
+        </div>
+      )}
+
+      {importMessage && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex justify-between items-center">
+          <span>{importMessage}</span>
+          <Link href="/reviews?status=imported" className="underline font-medium hover:text-green-800">
+            Bekijk geïmporteerde reviews →
+          </Link>
         </div>
       )}
 

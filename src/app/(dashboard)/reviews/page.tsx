@@ -50,6 +50,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
     approved: 'bg-blue-100 text-blue-800',
     posted: 'bg-green-100 text-green-800',
     failed: 'bg-red-100 text-red-800',
+    imported: 'bg-purple-100 text-purple-800',
   }
 
   const statusLabels = {
@@ -57,6 +58,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
     approved: 'Goedgekeurd',
     posted: 'Gepost',
     failed: 'Mislukt',
+    imported: 'Geïmporteerd',
   }
 
   // Count by status
@@ -65,6 +67,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
     pending: reviewList.filter(r => r.review.status === 'pending').length,
     approved: reviewList.filter(r => r.review.status === 'approved').length,
     posted: reviewList.filter(r => r.review.status === 'posted').length,
+    imported: reviewList.filter(r => r.review.status === 'imported').length,
   }
 
   return (
@@ -109,6 +112,11 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[review.status as keyof typeof statusColors] || statusColors.pending}`}>
+                      {review.status === 'imported' && (
+                        <svg className="inline-block w-3 h-3 mr-1 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                      )}
                       {statusLabels[review.status as keyof typeof statusLabels] || review.status}
                     </span>
                     <div className="flex items-center">
