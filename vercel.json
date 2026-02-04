@@ -9,6 +9,14 @@
     {
       "path": "/api/cron/sync-products",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/generate-reviews",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/post-reviews",
+      "schedule": "*/30 * * * *"
     }
   ]
 }
