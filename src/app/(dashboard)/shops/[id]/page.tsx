@@ -3,31 +3,30 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import PrioritySliders from '@/components/PrioritySliders'
 import type { Shop } from '@/lib/schema'
 
 interface SyncResult {
   success: boolean
-  productsSync: {
-    created: number
-    updated: number
-    total: number
-  }
-  reviewsImport: {
-    imported: number
-    skipped: number
-    failed: number
-  }
+  productsSync: { created: number; updated: number; total: number }
+  reviewsImport: { imported: number; skipped: number; failed: number }
   reviewsLinked: number
   error?: string
   duration: number
 }
 
-/**
- * Format relative time in Dutch
- */
+const DAYS = [
+  { key: 'mon', label: 'Ma' },
+  { key: 'tue', label: 'Di' },
+  { key: 'wed', label: 'Wo' },
+  { key: 'thu', label: 'Do' },
+  { key: 'fri', label: 'Vr' },
+  { key: 'sat', label: 'Za' },
+  { key: 'sun', label: 'Zo' },
+]
+
 function formatRelativeTime(date: Date | string | null): string {
   if (!date) return 'Nog nooit'
-  
   const now = new Date()
   const then = new Date(date)
   const diffMs = now.getTime() - then.getTime()
@@ -37,15 +36,9 @@ function formatRelativeTime(date: Date | string | null): string {
   
   if (diffMins < 1) return 'Zojuist'
   if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? 'minuut' : 'minuten'} geleden`
-  if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'uur' : 'uur'} geleden`
+  if (diffHours < 24) return `${diffHours} uur geleden`
   if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? 'dag' : 'dagen'} geleden`
-  
-  return then.toLocaleDateString('nl-NL', { 
-    day: 'numeric', 
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+  return then.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 export default function ShopDetailPage() {
@@ -61,18 +54,48 @@ export default function ShopDetailPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null)
 
-  // Form state
+  // API Form state
   const [apiKey, setApiKey] = useState('')
   const [apiSecret, setApiSecret] = useState('')
 
+  // Settings Form state
+  const [reviewsPerWeek, setReviewsPerWeek] = useState(10)
+  const [activeDays, setActiveDays] = useState<string[]>(['tue', 'wed', 'thu', 'sat'])
+  const [timeSlotStart, setTimeSlotStart] = useState('09:00')
+  const [timeSlotEnd, setTimeSlotEnd] = useState('21:00')
+  const [minHoursBetween, setMinHoursBetween] = useState(4)
+  const [priorityBestsellers, setPriorityBestsellers] = useState(60)
+  const [priorityNoReviews, setPriorityNoReviews] = useState(25)
+  const [priorityStale, setPriorityStale] = useState(15)
+  const [staleDaysThreshold, setStaleDaysThreshold] = useState(30)
+  const [autoGenerate, setAutoGenerate] = useState(false)
+
   const fetchShop = useCallback(async () => {
     try {
-      const res = await fetch(`/api/shops/${shopId}`)
-      if (!res.ok) throw new Error('Shop niet gevonden')
-      const data = await res.json()
-      setShop(data)
-      setApiKey(data.lightspeedApiKey || '')
-      setApiSecret(data.lightspeedApiSecret || '')
+      const [shopRes, settingsRes] = await Promise.all([
+        fetch(`/api/shops/${shopId}`),
+        fetch(`/api/shops/${shopId}/settings`)
+      ])
+      
+      if (!shopRes.ok) throw new Error('Shop niet gevonden')
+      const shopData = await shopRes.json()
+      setShop(shopData)
+      setApiKey(shopData.lightspeedApiKey || '')
+      setApiSecret(shopData.lightspeedApiSecret || '')
+
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json()
+        setReviewsPerWeek(settings.reviewsPerWeek ?? 10)
+        setActiveDays(settings.activeDays ?? ['tue', 'wed', 'thu', 'sat'])
+        setTimeSlotStart(settings.timeSlotStart ?? '09:00')
+        setTimeSlotEnd(settings.timeSlotEnd ?? '21:00')
+        setMinHoursBetween(settings.minHoursBetween ?? 4)
+        setPriorityBestsellers(settings.priorityBestsellers ?? 60)
+        setPriorityNoReviews(settings.priorityNoReviews ?? 25)
+        setPriorityStale(settings.priorityStale ?? 15)
+        setStaleDaysThreshold(settings.staleDaysThreshold ?? 30)
+        setAutoGenerate(settings.autoGenerate === 'true' || settings.autoGenerate === true)
+      }
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Onbekende fout')
@@ -81,11 +104,9 @@ export default function ShopDetailPage() {
     }
   }, [shopId])
 
-  useEffect(() => {
-    fetchShop()
-  }, [fetchShop])
+  useEffect(() => { fetchShop() }, [fetchShop])
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSaveApi = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     setError(null)
@@ -95,19 +116,40 @@ export default function ShopDetailPage() {
       const res = await fetch(`/api/shops/${shopId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lightspeedApiKey: apiKey || null,
-          lightspeedApiSecret: apiSecret || null,
-        }),
+        body: JSON.stringify({ lightspeedApiKey: apiKey || null, lightspeedApiSecret: apiSecret || null }),
       })
-
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Opslaan mislukt')
-      }
-
+      if (!res.ok) throw new Error((await res.json()).error || 'Opslaan mislukt')
       setSuccess('API credentials opgeslagen!')
       await fetchShop()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Opslaan mislukt')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (priorityBestsellers + priorityNoReviews + priorityStale !== 100) {
+      setError('Prioriteiten moeten optellen tot 100%')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const res = await fetch(`/api/shops/${shopId}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewsPerWeek, activeDays, timeSlotStart, timeSlotEnd, minHoursBetween,
+          priorityBestsellers, priorityNoReviews, priorityStale, staleDaysThreshold,
+          autoGenerate: autoGenerate ? 'true' : 'false',
+        }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Opslaan mislukt')
+      setSuccess('Instellingen opgeslagen!')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Opslaan mislukt')
     } finally {
@@ -122,62 +164,36 @@ export default function ShopDetailPage() {
     setSyncResult(null)
 
     try {
-      const res = await fetch(`/api/shops/${shopId}/sync-all`, {
-        method: 'POST',
-      })
-
+      const res = await fetch(`/api/shops/${shopId}/sync-all`, { method: 'POST' })
       const data = await res.json()
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Synchronisatie mislukt')
-      }
-
+      if (!res.ok || !data.success) throw new Error(data.error || 'Sync mislukt')
       setSyncResult(data)
       setSuccess('Synchronisatie voltooid!')
-      await fetchShop() // Refresh to get updated timestamps
+      await fetchShop()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Synchronisatie mislukt')
+      setError(e instanceof Error ? e.message : 'Sync mislukt')
     } finally {
       setSyncing(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!confirm('Weet je zeker dat je deze shop wilt verwijderen? Dit verwijdert ook alle producten en reviews.')) {
-      return
-    }
-
+    if (!confirm('Weet je zeker dat je deze shop wilt verwijderen?')) return
     try {
-      const res = await fetch(`/api/shops/${shopId}`, {
-        method: 'DELETE',
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Verwijderen mislukt')
-      }
-
+      const res = await fetch(`/api/shops/${shopId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Verwijderen mislukt')
       router.push('/shops')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Verwijderen mislukt')
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    )
+  const handleDayToggle = (day: string) => {
+    setActiveDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])
   }
 
-  if (!shop) {
-    return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-        Shop niet gevonden
-      </div>
-    )
-  }
+  if (loading) return <div className="flex items-center justify-center min-h-[400px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
+  if (!shop) return <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">Shop niet gevonden</div>
 
   const hasApiCredentials = shop.lightspeedApiKey && shop.lightspeedApiSecret
 
@@ -187,204 +203,163 @@ export default function ShopDetailPage() {
       <div className="flex justify-between items-start">
         <div>
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-            <Link href="/shops" className="hover:text-gray-700">
-              Shops
-            </Link>
+            <Link href="/shops" className="hover:text-gray-700">Shops</Link>
             <span>→</span>
             <span>{shop.name}</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">{shop.name}</h1>
           <p className="text-gray-600 mt-1">{shop.domain}</p>
         </div>
-        <div className="flex gap-2">
-          <Link
-            href={`/shops/${shopId}/settings`}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-          >
-            ⚙️ Instellingen
-          </Link>
-          <Link
-            href={`/shops/${shopId}/products`}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-          >
-            Bekijk producten →
-          </Link>
-        </div>
+        <Link href={`/shops/${shopId}/products`} className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+          Bekijk producten →
+        </Link>
       </div>
 
       {/* Messages */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-          {success}
-        </div>
-      )}
-
-      {/* Sync Result Details */}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
+      {success && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">{success}</div>}
       {syncResult && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg">
-          <div className="font-medium mb-2">Synchronisatie resultaat:</div>
+          <div className="font-medium mb-2">Sync resultaat:</div>
           <ul className="text-sm space-y-1">
             <li>✓ Producten: {syncResult.productsSync.created} nieuw, {syncResult.productsSync.updated} bijgewerkt</li>
             <li>✓ Reviews: {syncResult.reviewsImport.imported} geïmporteerd, {syncResult.reviewsImport.skipped} overgeslagen</li>
             <li>✓ Reviews gekoppeld: {syncResult.reviewsLinked}</li>
-            <li className="text-gray-600">Duur: {(syncResult.duration / 1000).toFixed(1)}s</li>
           </ul>
         </div>
       )}
 
-      {/* Sync Section */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Synchronisatie</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Synchroniseer producten en reviews van Lightspeed.
-          </p>
-        </div>
-
-        <div className="px-6 py-4">
-          {/* Sync Timestamps */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="text-2xl">📦</div>
-              <div>
-                <div className="text-sm text-gray-500">Laatste producten sync</div>
-                <div className="font-medium text-gray-900">
-                  {formatRelativeTime(shop.lastProductsSync)}
-                </div>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column */}
+        <div className="space-y-6">
+          {/* Sync Section */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-medium text-gray-900">🔄 Synchronisatie</h2>
             </div>
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="text-2xl">⭐</div>
-              <div>
-                <div className="text-sm text-gray-500">Laatste reviews sync</div>
-                <div className="font-medium text-gray-900">
-                  {formatRelativeTime(shop.lastReviewsSync)}
+            <div className="px-6 py-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500">Laatste products sync</div>
+                  <div className="font-medium text-sm">{formatRelativeTime(shop.lastProductsSync)}</div>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500">Laatste reviews sync</div>
+                  <div className="font-medium text-sm">{formatRelativeTime(shop.lastReviewsSync)}</div>
                 </div>
               </div>
+              <button onClick={handleSync} disabled={syncing || !hasApiCredentials}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-white font-medium ${syncing || !hasApiCredentials ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}>
+                {syncing ? <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> Synchroniseren...</> : '🔄 Sync Producten & Reviews'}
+              </button>
+              {!hasApiCredentials && <p className="text-sm text-amber-600 text-center">Configureer eerst je API credentials</p>}
             </div>
           </div>
 
-          {/* Sync Button */}
-          <button
-            onClick={handleSync}
-            disabled={syncing || !hasApiCredentials}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-white font-medium transition-colors
-              ${syncing 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : hasApiCredentials
-                  ? 'bg-green-600 hover:bg-green-700'
-                  : 'bg-gray-400 cursor-not-allowed'
-              }`}
-          >
-            {syncing ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                Synchroniseren...
-              </>
-            ) : (
-              <>
-                🔄 Sync Producten & Reviews
-              </>
-            )}
-          </button>
-
-          {!hasApiCredentials && (
-            <p className="text-sm text-amber-600 mt-2 text-center">
-              Configureer eerst je Lightspeed API credentials hieronder.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* API Configuration */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Lightspeed API Configuratie</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Vul je Lightspeed eCom API credentials in om producten te synchroniseren.
-          </p>
+          {/* API Configuration */}
+          <form onSubmit={handleSaveApi} className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-medium text-gray-900">🔑 Lightspeed API</h2>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">API Key</label>
+                <input type="text" value={apiKey} onChange={e => setApiKey(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm px-3 py-2 border" placeholder="Je Lightspeed API key" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">API Secret</label>
+                <input type="password" value={apiSecret} onChange={e => setApiSecret(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm px-3 py-2 border" placeholder="Je Lightspeed API secret" />
+              </div>
+              <div className="flex justify-between items-center pt-2">
+                <button type="button" onClick={handleDelete} className="text-red-600 hover:text-red-800 text-sm">Shop verwijderen</button>
+                <button type="submit" disabled={saving} className={`px-4 py-2 text-sm font-medium rounded-md text-white ${saving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                  {saving ? 'Opslaan...' : 'Opslaan'}
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
 
-        <form onSubmit={handleSave} className="px-6 py-4 space-y-4">
-          <div>
-            <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700">
-              API Key
-            </label>
-            <input
-              type="text"
-              id="apiKey"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              placeholder="Je Lightspeed API key"
-            />
+        {/* Right Column - Settings */}
+        <form onSubmit={handleSaveSettings} className="space-y-6">
+          {/* Volume */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-medium text-gray-900">📊 Volume & Planning</h2>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="font-medium text-gray-700">Reviews per week</span>
+                  <span className="font-bold text-blue-600">{reviewsPerWeek}</span>
+                </div>
+                <input type="range" min="2" max="20" value={reviewsPerWeek} onChange={e => setReviewsPerWeek(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Actieve dagen</label>
+                <div className="flex flex-wrap gap-1">
+                  {DAYS.map(day => (
+                    <button key={day.key} type="button" onClick={() => handleDayToggle(day.key)}
+                      className={`px-2 py-1 rounded text-xs font-medium ${activeDays.includes(day.key) ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                      {day.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Van</label>
+                  <input type="time" value={timeSlotStart} onChange={e => setTimeSlotStart(e.target.value)}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Tot</label>
+                  <input type="time" value={timeSlotEnd} onChange={e => setTimeSlotEnd(e.target.value)}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Min. uren tussen reviews</label>
+                <input type="number" min="1" max="24" value={minHoursBetween} onChange={e => setMinHoursBetween(parseInt(e.target.value) || 4)}
+                  className="w-20 px-2 py-1 text-sm border border-gray-300 rounded-md" />
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label htmlFor="apiSecret" className="block text-sm font-medium text-gray-700">
-              API Secret
-            </label>
-            <input
-              type="password"
-              id="apiSecret"
-              value={apiSecret}
-              onChange={(e) => setApiSecret(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              placeholder="Je Lightspeed API secret"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Je vindt deze in Lightspeed onder Instellingen → API
-            </p>
+          {/* Priority */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-medium text-gray-900">🎯 Product Prioriteit</h2>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <PrioritySliders bestsellers={priorityBestsellers} noReviews={priorityNoReviews} stale={priorityStale}
+                onChange={v => { setPriorityBestsellers(v.bestsellers); setPriorityNoReviews(v.noReviews); setPriorityStale(v.stale) }} />
+              <div className="pt-3 border-t">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Dagen voor "lang niet reviewed"</label>
+                <input type="number" min="7" max="365" value={staleDaysThreshold} onChange={e => setStaleDaysThreshold(parseInt(e.target.value) || 30)}
+                  className="w-20 px-2 py-1 text-sm border border-gray-300 rounded-md" />
+              </div>
+            </div>
           </div>
 
-          <div className="flex justify-between items-center pt-4">
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="text-red-600 hover:text-red-800 text-sm font-medium"
-            >
-              Shop verwijderen
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white 
-                ${saving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
-            >
-              {saving ? 'Opslaan...' : 'Opslaan'}
-            </button>
+          {/* Auto Generate + Save */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 flex items-center justify-between">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={autoGenerate} onChange={e => setAutoGenerate(e.target.checked)}
+                  className="w-5 h-5 text-blue-600 border-gray-300 rounded" />
+                <span className="text-sm font-medium text-gray-700">🤖 Auto-genereren</span>
+              </label>
+              <button type="submit" disabled={saving}
+                className={`px-4 py-2 text-sm font-medium rounded-md text-white ${saving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                {saving ? 'Opslaan...' : '💾 Instellingen opslaan'}
+              </button>
+            </div>
           </div>
         </form>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg shadow px-6 py-4">
-          <div className="text-sm text-gray-500">API Status</div>
-          <div className="mt-1">
-            {shop.lightspeedApiKey ? (
-              <span className="text-green-600 font-medium">✓ Geconfigureerd</span>
-            ) : (
-              <span className="text-yellow-600 font-medium">○ Niet geconfigureerd</span>
-            )}
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow px-6 py-4">
-          <div className="text-sm text-gray-500">Slug</div>
-          <div className="mt-1 font-medium text-gray-900">{shop.slug}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow px-6 py-4">
-          <div className="text-sm text-gray-500">Aangemaakt</div>
-          <div className="mt-1 font-medium text-gray-900">
-            {shop.createdAt ? new Date(shop.createdAt).toLocaleDateString('nl-NL') : '—'}
-          </div>
-        </div>
       </div>
     </div>
   )
