@@ -12,6 +12,17 @@ export const shops = pgTable('shops', {
   settings: jsonb('settings').default({}),
   lastProductsSync: timestamp('last_products_sync', { withTimezone: true }),
   lastReviewsSync: timestamp('last_reviews_sync', { withTimezone: true }),
+  // Review workflow settings
+  reviewsPerWeek: integer('reviews_per_week').default(10),
+  activeDays: text('active_days').array().default(['tue', 'wed', 'thu', 'sat']),
+  timeSlotStart: text('time_slot_start').default('09:00'),
+  timeSlotEnd: text('time_slot_end').default('21:00'),
+  minHoursBetween: integer('min_hours_between').default(4),
+  priorityBestsellers: integer('priority_bestsellers').default(60),
+  priorityNoReviews: integer('priority_no_reviews').default(25),
+  priorityStale: integer('priority_stale').default(15),
+  staleDaysThreshold: integer('stale_days_threshold').default(30),
+  autoGenerate: text('auto_generate').default('false').$type<'true' | 'false'>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })
@@ -41,7 +52,7 @@ export const reviews = pgTable('reviews', {
   id: uuid('id').primaryKey().defaultRandom(),
   shopId: uuid('shop_id').references(() => shops.id, { onDelete: 'cascade' }),
   productId: uuid('product_id').references(() => products.id, { onDelete: 'cascade' }),
-  status: text('status').default('pending').notNull(), // pending, approved, posted, failed, imported (imported = existing reviews from Lightspeed)
+  status: text('status').default('pending').notNull(), // pending, approved, rejected, posted, failed, imported (imported = existing reviews from Lightspeed)
   reviewerName: text('reviewer_name').notNull(),
   rating: integer('rating').notNull(),
   title: text('title'),
@@ -50,6 +61,11 @@ export const reviews = pgTable('reviews', {
   scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
   postedAt: timestamp('posted_at', { withTimezone: true }),
   externalId: text('external_id'),
+  // Review workflow fields
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  approvedBy: text('approved_by'),
+  rejectedAt: timestamp('rejected_at', { withTimezone: true }),
+  rejectionReason: text('rejection_reason'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 }, (table) => [

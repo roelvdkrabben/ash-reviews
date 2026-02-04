@@ -8,6 +8,7 @@ const navItems = [
   { href: '/', label: 'Dashboard' },
   { href: '/shops', label: 'Shops' },
   { href: '/reviews', label: 'Reviews' },
+  { href: '/reviews/queue', label: '📋 Wachtrij' },
 ]
 
 export default function Navbar() {
