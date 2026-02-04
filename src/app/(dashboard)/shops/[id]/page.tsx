@@ -51,9 +51,11 @@ export default function ShopDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null)
+  const [generateResult, setGenerateResult] = useState<{ generated: number; products: string[] } | null>(null)
 
   // API Form state
   const [apiKey, setApiKey] = useState('')
@@ -195,6 +197,29 @@ export default function ShopDetailPage() {
     }
   }
 
+  const handleGenerate = async () => {
+    setGenerating(true)
+    setError(null)
+    setSuccess(null)
+    setGenerateResult(null)
+
+    try {
+      const res = await fetch(`/api/shops/${shopId}/generate`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count: 3 }) // Generate 3 reviews at a time
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || 'Generatie mislukt')
+      setGenerateResult({ generated: data.generated, products: data.products })
+      setSuccess(`${data.generated} review(s) gegenereerd!`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Generatie mislukt')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   const handleDayToggle = (day: string) => {
     setActiveDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])
   }
@@ -245,6 +270,17 @@ export default function ShopDetailPage() {
           </ul>
         </div>
       )}
+      {generateResult && (
+        <div className="bg-purple-50 border border-purple-200 text-purple-800 px-4 py-3 rounded-lg">
+          <div className="font-medium mb-2">Generatie resultaat:</div>
+          <ul className="text-sm space-y-1">
+            <li>✓ {generateResult.generated} review(s) gegenereerd</li>
+            {generateResult.products.map((p, i) => (
+              <li key={i} className="text-purple-600">• {p}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column */}
@@ -270,6 +306,23 @@ export default function ShopDetailPage() {
                 {syncing ? <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> Synchroniseren...</> : '🔄 Sync Producten & Reviews'}
               </button>
               {!hasApiCredentials && <p className="text-sm text-amber-600 text-center">Configureer eerst je API credentials</p>}
+            </div>
+          </div>
+
+          {/* Generate Section */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-medium text-gray-900">✨ Reviews Genereren</h2>
+              <p className="text-sm text-gray-500 mt-1">Genereer direct reviews op basis van je instellingen</p>
+            </div>
+            <div className="px-6 py-4">
+              <button onClick={handleGenerate} disabled={generating}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-white font-medium ${generating ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
+                {generating ? <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> Genereren...</> : '✨ Genereer 3 Reviews Nu'}
+              </button>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                Selecteert producten op basis van je priority instellingen
+              </p>
             </div>
           </div>
 
