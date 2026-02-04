@@ -4,5 +4,11 @@
   "installCommand": "npm install",
   "env": {
     "NEXT_PUBLIC_SUPABASE_URL": "https://jybawmgbucpwroojaomn.supabase.co"
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/sync-products",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }
