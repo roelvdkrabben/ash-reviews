@@ -4,11 +4,17 @@ import { neon } from '@neondatabase/serverless'
 
 // Load .env.local
 const envPath = join(process.cwd(), '.env.local')
+console.log('Loading env from:', envPath)
 const envContent = readFileSync(envPath, 'utf-8')
-for (const line of envContent.split('\n')) {
+for (const line of envContent.split(/\r?\n/)) {
   const match = line.match(/^([^#=]+)=(.*)$/)
   if (match) {
-    process.env[match[1].trim()] = match[2].trim()
+    const key = match[1].trim()
+    const value = match[2].trim()
+    process.env[key] = value
+    if (key === 'DATABASE_URL') {
+      console.log('Found DATABASE_URL')
+    }
   }
 }
 
