@@ -399,15 +399,28 @@ function ReviewCard({ item, isSelected, isFocused, onToggleSelect, onApprove, on
           {/* Content preview */}
           <p className="text-gray-700 line-clamp-2">{review.content}</p>
 
-          {/* Date */}
+          {/* Scheduled date */}
           <p className="text-xs text-gray-400 mt-2">
-            {new Date(review.createdAt!).toLocaleDateString('nl-NL', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
+            {review.scheduledAt ? (
+              <>
+                📅 Ingepland: {new Date(review.scheduledAt).toLocaleDateString('nl-NL', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </>
+            ) : (
+              <>
+                Aangemaakt: {new Date(review.createdAt!).toLocaleDateString('nl-NL', {
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </>
+            )}
           </p>
         </div>
 
