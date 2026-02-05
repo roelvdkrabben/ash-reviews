@@ -51,9 +51,9 @@ function buildPrompt(input: ReviewInput, style: 'short' | 'medium' | 'long'): st
   const styleGuide = [
     'casual en vriendelijk, alsof je tegen een vriend praat',
     'wat formeler, zakelijk maar positief',
-    'enthousiast, met uitroeptekens',
     'nuchter Nederlands, geen overdreven lovend',
-    'praktisch, focus op gebruiksgemak'
+    'praktisch, focus op gebruiksgemak',
+    'kort en bondig, recht op het doel af'
   ]
   
   const randomStyle = styleGuide[Math.floor(Math.random() * styleGuide.length)]
@@ -81,7 +81,9 @@ ${product.price ? `- Prijs: €${product.price}` : ''}
 4. Kleine imperfecties in spelling/grammatica zijn OK (maar overdrijf niet)
 5. Geen onnodige superlatieven
 6. Geen vermelding van levertijd of verpakking tenzij relevant voor het product
-7. Focus op het product zelf, niet op de webshop`
+7. Focus op het product zelf, niet op de webshop
+8. GEEN uitroeptekens gebruiken! Nederlanders schrijven zelden met uitroeptekens
+9. Houd het bondig - korte reviews zijn vaak geloofwaardiger`
 
   if (existingReviews && existingReviews.length > 0) {
     prompt += `
@@ -110,7 +112,7 @@ export async function generateReview(input: ReviewInput): Promise<GeneratedRevie
   
   // Random style kiezen
   const styles: Array<'short' | 'medium' | 'long'> = ['short', 'medium', 'long']
-  const weights = [0.3, 0.5, 0.2] // 30% kort, 50% medium, 20% lang
+  const weights = [0.45, 0.40, 0.15] // 45% kort, 40% medium, 15% lang
   const random = Math.random()
   let style: 'short' | 'medium' | 'long' = 'medium'
   
