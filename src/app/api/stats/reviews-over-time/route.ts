@@ -94,14 +94,27 @@ export async function GET(request: NextRequest) {
       currentDate.setDate(currentDate.getDate() + 1)
     }
 
-    // Future dates (after today)
-    const tomorrowDate = new Date(today)
-    tomorrowDate.setDate(tomorrowDate.getDate() + 1)
-    const futureDateIter = new Date(tomorrowDate)
-    
-    while (futureDateIter <= futureEndDate) {
-      futureLabels.push(futureDateIter.toISOString().split('T')[0])
-      futureDateIter.setDate(futureDateIter.getDate() + 1)
+    // Find the last date with scheduled reviews (if any)
+    let lastScheduledDate: Date | null = null
+    if (scheduledReviews.length > 0) {
+      const lastDateStr = scheduledReviews[scheduledReviews.length - 1].date
+      lastScheduledDate = new Date(lastDateStr)
+    }
+
+    // Future dates - only up to the last scheduled review (+ 1 day buffer)
+    if (lastScheduledDate) {
+      const tomorrowDate = new Date(today)
+      tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+      const futureDateIter = new Date(tomorrowDate)
+      
+      // Add 1 day buffer after last scheduled
+      const futureEnd = new Date(lastScheduledDate)
+      futureEnd.setDate(futureEnd.getDate() + 1)
+      
+      while (futureDateIter <= futureEnd) {
+        futureLabels.push(futureDateIter.toISOString().split('T')[0])
+        futureDateIter.setDate(futureDateIter.getDate() + 1)
+      }
     }
 
     const allLabels = [...pastLabels, ...futureLabels]

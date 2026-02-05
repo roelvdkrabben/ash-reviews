@@ -200,11 +200,10 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
             />
             <Legend 
               formatter={(value: string) => {
+                // Remove the _past or _scheduled suffix, just show shop name
                 const parts = value.split('_')
-                const type = parts.pop()
-                const shopName = parts.join('_')
-                const typeLabel = type === 'scheduled' ? ' (plan)' : ''
-                return `${shopName}${typeLabel}`
+                parts.pop() // remove type suffix
+                return parts.join('_')
               }}
             />
             
@@ -239,7 +238,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
                 )
               }
               
-              // Scheduled reviews - dashed line (same color, continues the shop's story)
+              // Scheduled reviews - dashed line (same color, hidden from legend)
               if (hasScheduled) {
                 lines.push(
                   <Line
@@ -253,6 +252,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
                     dot={{ r: 3, strokeDasharray: '' }}
                     activeDot={{ r: 5 }}
                     connectNulls={false}
+                    legendType="none"
                   />
                 )
               }
