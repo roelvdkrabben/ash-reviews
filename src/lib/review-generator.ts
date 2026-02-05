@@ -118,7 +118,7 @@ ${product.price ? `- Prijs: €${product.price}` : ''}
 - Rating: ${rating}/5 sterren
 - Lengte: ${lengthGuide[style]}
 - Taal: Natuurlijk Nederlands, zoals echte mensen schrijven
-- GEEN uitroeptekens
+- Zelden uitroeptekens (max 1 per review, en alleen als het echt past)
 - GEEN clichés als "zeer tevreden", "uitstekende kwaliteit", "aanrader"
 - GEEN vermelding van bezorging/verpakking
 - WEL: specifiek, geloofwaardig, menselijk`
