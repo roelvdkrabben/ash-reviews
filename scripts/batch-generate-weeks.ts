@@ -7,12 +7,23 @@
  * Includes rate limiting to avoid Gemini 429 errors
  */
 
-import { db } from '../src/lib/db';
-import { shops, products, reviews } from '../src/lib/schema';
-import { eq, and } from 'drizzle-orm';
-import { selectProductsAvoidingRecent } from '../src/lib/product-selector';
-import { scheduleReviewsForShop } from '../src/lib/review-scheduler';
-import { generateBatch } from '../src/lib/review-generator';
+import fs from 'fs';
+import path from 'path';
+
+// Load .env.local manually BEFORE any other imports
+const envPath = path.join(process.cwd(), '.env.local');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf-8');
+  for (const line of envContent.split('\n')) {
+    const [key, ...valueParts] = line.split('=');
+    if (key && valueParts.length > 0) {
+      const value = valueParts.join('=').trim();
+      if (!process.env[key.trim()]) {
+        process.env[key.trim()] = value.replace(/^["']|["']$/g, '');
+      }
+    }
+  }
+}
 
 const DELAY_BETWEEN_REVIEWS = 2000; // 2 seconds between API calls
 const DELAY_BETWEEN_SHOPS = 5000;   // 5 seconds between shops
@@ -22,6 +33,14 @@ function sleep(ms: number) {
 }
 
 async function batchGenerateWeeks(weeks: number = 2) {
+  // Dynamic imports after env is loaded
+  const { db } = await import('../src/lib/db');
+  const { shops, products, reviews } = await import('../src/lib/schema');
+  const { eq, and } = await import('drizzle-orm');
+  const { selectProductsAvoidingRecent } = await import('../src/lib/product-selector');
+  const { scheduleReviewsForShop } = await import('../src/lib/review-scheduler');
+  const { generateBatch } = await import('../src/lib/review-generator');
+
   console.log(`\n🚀 Generating reviews for ${weeks} weeks...\n`);
   
   if (!process.env.GEMINI_API_KEY) {

@@ -91,9 +91,9 @@ export async function PUT(
     }
 
     // Validate reviews per week
-    if (reviewsPerWeek !== undefined && (reviewsPerWeek < 2 || reviewsPerWeek > 20)) {
+    if (reviewsPerWeek !== undefined && (reviewsPerWeek < 2 || reviewsPerWeek > 50)) {
       return NextResponse.json(
-        { error: 'Reviews per week moet tussen 2 en 20 zijn' },
+        { error: 'Reviews per week moet tussen 2 en 50 zijn' },
         { status: 400 }
       )
     }
