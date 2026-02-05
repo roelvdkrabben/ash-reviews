@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  ReferenceLine,
 } from 'recharts'
 
 // Consistent colors per shop index
@@ -27,12 +28,15 @@ const SHOP_COLORS = [
 interface Dataset {
   shopId: string
   shopName: string
-  data: number[]
+  posted: number[]
+  imported: number[]
+  scheduled: number[]
 }
 
 interface ChartData {
   labels: string[]
   datasets: Dataset[]
+  todayIndex: number
 }
 
 interface ReviewsChartProps {
@@ -69,7 +73,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
 
   // Transform data for Recharts
   const chartData = data?.labels.map((label, index) => {
-    const point: Record<string, string | number> = {
+    const point: Record<string, string | number | null> = {
       date: label,
       // Format date for display
       displayDate: new Date(label).toLocaleDateString('nl-NL', {
@@ -79,11 +83,26 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
     }
     
     data.datasets.forEach(dataset => {
-      point[dataset.shopName] = dataset.data[index]
+      // Posted reviews - only show for past/today
+      const postedValue = dataset.posted[index]
+      point[`${dataset.shopName}_posted`] = index <= data.todayIndex && postedValue > 0 ? postedValue : null
+      
+      // Imported reviews - only show for past/today
+      const importedValue = dataset.imported[index]
+      point[`${dataset.shopName}_imported`] = index <= data.todayIndex && importedValue > 0 ? importedValue : null
+      
+      // Scheduled reviews - only show for future
+      const scheduledValue = dataset.scheduled[index]
+      point[`${dataset.shopName}_scheduled`] = index > data.todayIndex && scheduledValue > 0 ? scheduledValue : null
     })
     
     return point
   }) || []
+
+  // Check if we have any data for each type
+  const hasPosted = data?.datasets.some(d => d.posted.some(v => v > 0)) ?? false
+  const hasImported = data?.datasets.some(d => d.imported.some(v => v > 0)) ?? false
+  const hasScheduled = data?.datasets.some(d => d.scheduled.some(v => v > 0)) ?? false
 
   if (loading) {
     return (
@@ -113,10 +132,22 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
     )
   }
 
+  // Get today's display date for reference line
+  const todayDisplayDate = data.todayIndex >= 0 && data.todayIndex < chartData.length 
+    ? chartData[data.todayIndex]?.displayDate 
+    : null
+
   return (
     <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Geplaatste reviews</h2>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Reviews over tijd</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {hasPosted && <span className="mr-3">━ Geplaatst</span>}
+            {hasImported && <span className="mr-3 text-gray-400">━ Geïmporteerd</span>}
+            {hasScheduled && <span className="mr-3">╌╌ Ingepland</span>}
+          </p>
+        </div>
         <div className="flex gap-2">
           {[7, 30, 90].map(d => (
             <button
@@ -163,19 +194,96 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
               }}
               labelFormatter={(label) => `Datum: ${label}`}
+              formatter={(value, name) => {
+                if (value === undefined || name === undefined) return [0, '']
+                // Parse the name to make it more readable
+                const nameStr = String(name)
+                const parts = nameStr.split('_')
+                const type = parts.pop()
+                const shopName = parts.join('_')
+                const typeLabel = type === 'posted' ? 'Geplaatst' : type === 'imported' ? 'Geïmporteerd' : 'Ingepland'
+                return [value, `${shopName} (${typeLabel})`]
+              }}
             />
-            <Legend />
-            {data.datasets.map((dataset, index) => (
-              <Line
-                key={dataset.shopId}
-                type="monotone"
-                dataKey={dataset.shopName}
-                stroke={SHOP_COLORS[index % SHOP_COLORS.length]}
-                strokeWidth={2}
-                dot={{ r: 3 }}
-                activeDot={{ r: 5 }}
+            <Legend 
+              formatter={(value: string) => {
+                const parts = value.split('_')
+                const type = parts.pop()
+                const shopName = parts.join('_')
+                const typeLabel = type === 'posted' ? '' : type === 'imported' ? ' (imp)' : ' (plan)'
+                return `${shopName}${typeLabel}`
+              }}
+            />
+            
+            {/* Reference line for today */}
+            {todayDisplayDate && (
+              <ReferenceLine 
+                x={todayDisplayDate} 
+                stroke="#9CA3AF" 
+                strokeDasharray="3 3"
+                label={{ value: 'Vandaag', position: 'top', fontSize: 10, fill: '#6B7280' }}
               />
-            ))}
+            )}
+            
+            {data.datasets.map((dataset, index) => {
+              const color = SHOP_COLORS[index % SHOP_COLORS.length]
+              const lines = []
+              
+              // Posted reviews - solid line
+              if (hasPosted) {
+                lines.push(
+                  <Line
+                    key={`${dataset.shopId}_posted`}
+                    type="monotone"
+                    dataKey={`${dataset.shopName}_posted`}
+                    name={`${dataset.shopName}_posted`}
+                    stroke={color}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                    connectNulls={false}
+                  />
+                )
+              }
+              
+              // Imported reviews - solid line, slightly transparent
+              if (hasImported) {
+                lines.push(
+                  <Line
+                    key={`${dataset.shopId}_imported`}
+                    type="monotone"
+                    dataKey={`${dataset.shopName}_imported`}
+                    name={`${dataset.shopName}_imported`}
+                    stroke={color}
+                    strokeWidth={2}
+                    strokeOpacity={0.5}
+                    dot={{ r: 3, fillOpacity: 0.5 }}
+                    activeDot={{ r: 5 }}
+                    connectNulls={false}
+                  />
+                )
+              }
+              
+              // Scheduled reviews - dashed line
+              if (hasScheduled) {
+                lines.push(
+                  <Line
+                    key={`${dataset.shopId}_scheduled`}
+                    type="monotone"
+                    dataKey={`${dataset.shopName}_scheduled`}
+                    name={`${dataset.shopName}_scheduled`}
+                    stroke={color}
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    dot={{ r: 3, strokeDasharray: '' }}
+                    activeDot={{ r: 5 }}
+                    connectNulls={false}
+                  />
+                )
+              }
+              
+              return lines
+            })}
           </LineChart>
         </ResponsiveContainer>
       </div>

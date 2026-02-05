@@ -366,7 +366,7 @@ export default function ShopDetailPage() {
                   <span className="font-medium text-gray-700">Reviews per week</span>
                   <span className="font-bold text-blue-600">{reviewsPerWeek}</span>
                 </div>
-                <input type="range" min="2" max="20" value={reviewsPerWeek} onChange={e => setReviewsPerWeek(parseInt(e.target.value))}
+                <input type="range" min="2" max="50" value={reviewsPerWeek} onChange={e => setReviewsPerWeek(parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500" />
               </div>
               <div>
