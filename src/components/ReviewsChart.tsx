@@ -80,6 +80,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
     
     data.datasets.forEach(dataset => {
       const pastValue = dataset.past[index]
+      // Keep null for days without reviews, but we'll use connectNulls to draw smooth lines
       point[`${dataset.shopName}`] = pastValue > 0 ? pastValue : null
     })
     
@@ -194,7 +195,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
                   strokeWidth={2}
                   dot={{ r: 3 }}
                   activeDot={{ r: 5 }}
-                  connectNulls={false}
+                  connectNulls={true}
                 />
               )
             })}

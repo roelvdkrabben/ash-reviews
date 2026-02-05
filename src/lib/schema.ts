@@ -67,6 +67,7 @@ export const reviews = pgTable('reviews', {
   approvedBy: text('approved_by'),
   rejectedAt: timestamp('rejected_at', { withTimezone: true }),
   rejectionReason: text('rejection_reason'),
+  error: text('error'), // Error message if posting failed
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 }, (table) => [
