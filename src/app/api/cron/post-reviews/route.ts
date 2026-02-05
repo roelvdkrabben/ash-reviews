@@ -135,6 +135,14 @@ export async function GET(request: Request) {
           throw new Error('Product missing external ID')
         }
 
+        // Get customer ID from shop settings (required by Lightspeed API)
+        const shopSettings = shop.settings as Record<string, unknown> || {}
+        const customerId = shopSettings.reviewCustomerId as number | undefined
+        
+        if (!customerId) {
+          throw new Error('Shop missing reviewCustomerId in settings. Run setup-review-customer.ts first.')
+        }
+
         // Post review to Lightspeed
         const lightspeedReview = await client.createReview(
           parseInt(product.externalId, 10),
@@ -143,6 +151,7 @@ export async function GET(request: Request) {
             name: review.reviewerName,
             content: review.content,
             isVisible: true,
+            customerId: customerId,
           }
         )
 

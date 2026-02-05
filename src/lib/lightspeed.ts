@@ -120,6 +120,7 @@ export interface LightspeedReviewInput {
   content: string
   isVisible?: boolean
   language?: string
+  customerId?: number // Required for creating reviews in Lightspeed
 }
 
 export class LightspeedError extends Error {
@@ -310,28 +311,66 @@ export class LightspeedClient {
 
   /**
    * Create a new review
+   * Note: Lightspeed requires a customer ID for reviews.
+   * You can use a generic "reviews" customer or create customers dynamically.
    */
   async createReview(
     productId: number,
     review: LightspeedReviewInput
   ): Promise<LightspeedReview> {
+    const reviewData: Record<string, unknown> = {
+      product: productId,
+      score: review.score,
+      name: review.name,
+      content: review.content,
+      isVisible: review.isVisible ?? true,
+      language: review.language || this.language,
+    }
+    
+    // Add customer ID if provided
+    if (review.customerId) {
+      reviewData.customer = review.customerId
+    }
+    
     const data = await this.request<{ review: LightspeedReview }>(
       '/reviews.json',
       {
         method: 'POST',
+        body: JSON.stringify({ review: reviewData }),
+      }
+    )
+    return data.review
+  }
+
+  /**
+   * Get all customers (for finding a generic review customer)
+   */
+  async getCustomers(limit: number = 50): Promise<{ id: number; email: string; firstname: string; lastname: string }[]> {
+    const data = await this.request<{ customers: { id: number; email: string; firstname: string; lastname: string }[] }>(
+      `/customers.json?limit=${limit}`
+    )
+    return data.customers || []
+  }
+
+  /**
+   * Create a customer (for anonymous reviews)
+   */
+  async createCustomer(email: string, firstname: string, lastname: string = ''): Promise<{ id: number }> {
+    const data = await this.request<{ customer: { id: number } }>(
+      '/customers.json',
+      {
+        method: 'POST',
         body: JSON.stringify({
-          review: {
-            product: productId,
-            score: review.score,
-            name: review.name,
-            content: review.content,
-            isVisible: review.isVisible ?? true,
-            language: review.language || this.language,
+          customer: {
+            email,
+            firstname,
+            lastname,
+            isConfirmed: true,
           },
         }),
       }
     )
-    return data.review
+    return data.customer
   }
 
   /**
