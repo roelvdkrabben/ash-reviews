@@ -260,15 +260,42 @@ export class LightspeedClient {
   }
 
   /**
-   * Get reviews, optionally filtered by product
+   * Get reviews with pagination
    */
-  async getReviews(productId?: number): Promise<LightspeedReview[]> {
+  async getReviewsPage(productId?: number, limit: number = 250, page: number = 1): Promise<LightspeedReview[]> {
+    const safeLimit = Math.min(limit, 250)
     const endpoint = productId 
-      ? `/reviews.json?product=${productId}&limit=250`
-      : '/reviews.json?limit=250'
+      ? `/reviews.json?product=${productId}&limit=${safeLimit}&page=${page}`
+      : `/reviews.json?limit=${safeLimit}&page=${page}`
     
     const data = await this.request<{ reviews: LightspeedReview[] }>(endpoint)
     return data.reviews || []
+  }
+
+  /**
+   * Get all reviews (handles pagination automatically)
+   */
+  async getReviews(productId?: number): Promise<LightspeedReview[]> {
+    const allReviews: LightspeedReview[] = []
+    let page = 1
+    const limit = 250 // Max allowed
+
+    while (true) {
+      const reviews = await this.getReviewsPage(productId, limit, page)
+      if (reviews.length === 0) break
+      
+      allReviews.push(...reviews)
+      
+      // If we got less than the limit, we're done
+      if (reviews.length < limit) break
+      
+      page++
+      
+      // Safety limit to prevent infinite loops
+      if (page > 100) break
+    }
+
+    return allReviews
   }
 
   /**
