@@ -10,7 +10,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  ReferenceLine,
 } from 'recharts'
 
 // Consistent colors per shop index
@@ -29,13 +28,11 @@ interface Dataset {
   shopId: string
   shopName: string
   past: number[]
-  scheduled: number[]
 }
 
 interface ChartData {
   labels: string[]
   datasets: Dataset[]
-  todayIndex: number
 }
 
 interface ReviewsChartProps {
@@ -70,7 +67,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
     }
   }
 
-  // Transform data for Recharts
+  // Transform data for Recharts - only past/posted reviews
   const chartData = data?.labels.map((label, index) => {
     const point: Record<string, string | number | null> = {
       date: label,
@@ -82,21 +79,15 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
     }
     
     data.datasets.forEach(dataset => {
-      // Past reviews (solid) - only show for past/today
       const pastValue = dataset.past[index]
-      point[`${dataset.shopName}_past`] = index <= data.todayIndex && pastValue > 0 ? pastValue : null
-      
-      // Scheduled reviews (dashed) - only show for future
-      const scheduledValue = dataset.scheduled[index]
-      point[`${dataset.shopName}_scheduled`] = index > data.todayIndex && scheduledValue > 0 ? scheduledValue : null
+      point[`${dataset.shopName}`] = pastValue > 0 ? pastValue : null
     })
     
     return point
   }) || []
 
-  // Check if we have any data for each type
-  const hasPast = data?.datasets.some(d => d.past.some(v => v > 0)) ?? false
-  const hasScheduled = data?.datasets.some(d => d.scheduled.some(v => v > 0)) ?? false
+  // Check if we have any data
+  const hasData = data?.datasets.some(d => d.past.some(v => v > 0)) ?? false
 
   if (loading) {
     return (
@@ -126,20 +117,12 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
     )
   }
 
-  // Get today's display date for reference line
-  const todayDisplayDate = data.todayIndex >= 0 && data.todayIndex < chartData.length 
-    ? chartData[data.todayIndex]?.displayDate 
-    : null
-
   return (
     <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Reviews over tijd</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            {hasPast && <span className="mr-3">━ Geplaatst</span>}
-            {hasScheduled && <span className="mr-3">╌╌ Ingepland</span>}
-          </p>
+          <p className="text-sm text-gray-500 mt-1">Geplaatste reviews per shop</p>
         </div>
         <div className="flex gap-2">
           {[7, 30, 90].map(d => (
@@ -189,75 +172,31 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
               labelFormatter={(label) => `Datum: ${label}`}
               formatter={(value, name) => {
                 if (value === undefined || name === undefined) return [0, '']
-                // Parse the name to make it more readable
-                const nameStr = String(name)
-                const parts = nameStr.split('_')
-                const type = parts.pop()
-                const shopName = parts.join('_')
-                const typeLabel = type === 'scheduled' ? 'Ingepland' : 'Geplaatst'
-                return [value, `${shopName} (${typeLabel})`]
+                return [value, String(name)]
               }}
             />
-            <Legend 
-              formatter={(value: string) => {
-                // Remove the _past or _scheduled suffix, just show shop name
-                const parts = value.split('_')
-                parts.pop() // remove type suffix
-                return parts.join('_')
-              }}
-            />
-            
-            {/* Reference line for today */}
-            {todayDisplayDate && (
-              <ReferenceLine 
-                x={todayDisplayDate} 
-                stroke="#9CA3AF" 
-                strokeDasharray="3 3"
-                label={{ value: 'Vandaag', position: 'top', fontSize: 10, fill: '#6B7280' }}
-              />
-            )}
+            <Legend />
             
             {data.datasets.map((dataset, index) => {
               const color = SHOP_COLORS[index % SHOP_COLORS.length]
-              const lines = []
               
-              // Past reviews - solid line
-              if (hasPast) {
-                lines.push(
-                  <Line
-                    key={`${dataset.shopId}_past`}
-                    type="monotone"
-                    dataKey={`${dataset.shopName}_past`}
-                    name={`${dataset.shopName}_past`}
-                    stroke={color}
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                    activeDot={{ r: 5 }}
-                    connectNulls={false}
-                  />
-                )
-              }
+              // Only show shops that have data
+              const hasShopData = dataset.past.some(v => v > 0)
+              if (!hasShopData) return null
               
-              // Scheduled reviews - dashed line (same color, hidden from legend)
-              if (hasScheduled) {
-                lines.push(
-                  <Line
-                    key={`${dataset.shopId}_scheduled`}
-                    type="monotone"
-                    dataKey={`${dataset.shopName}_scheduled`}
-                    name={`${dataset.shopName}_scheduled`}
-                    stroke={color}
-                    strokeWidth={2}
-                    strokeDasharray="5 5"
-                    dot={{ r: 3, strokeDasharray: '' }}
-                    activeDot={{ r: 5 }}
-                    connectNulls={false}
-                    legendType="none"
-                  />
-                )
-              }
-              
-              return lines
+              return (
+                <Line
+                  key={dataset.shopId}
+                  type="monotone"
+                  dataKey={dataset.shopName}
+                  name={dataset.shopName}
+                  stroke={color}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                  connectNulls={false}
+                />
+              )
             })}
           </LineChart>
         </ResponsiveContainer>
