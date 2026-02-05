@@ -133,12 +133,14 @@ function ShopMiniCalendar({
   )
 }
 
-// Custom tooltip for main chart
+// Custom tooltip for main chart - now includes shop breakdown
 function CustomTooltip({ active, payload, label }: any) {
   if (active && payload && payload.length) {
     const data = payload[0].payload
+    const shopBreakdown: Array<{ name: string; count: number }> = data.shopBreakdown || []
+    
     return (
-      <div className="bg-white px-3 py-2 shadow-lg rounded-lg border border-gray-200">
+      <div className="bg-white px-3 py-2 shadow-lg rounded-lg border border-gray-200 max-w-xs">
         <p className="font-medium text-gray-900">
           {formatWeekday(data.date)} {formatShortDate(data.date)}
         </p>
@@ -153,6 +155,19 @@ function CustomTooltip({ active, payload, label }: any) {
             <p className="text-gray-400">Geen reviews gepland</p>
           )}
         </div>
+        {/* Shop breakdown */}
+        {shopBreakdown.length > 0 && data.total > 0 && (
+          <div className="mt-2 pt-2 border-t border-gray-100">
+            <div className="text-xs text-gray-500 space-y-0.5">
+              {shopBreakdown.map((shop, idx) => (
+                <div key={idx} className="flex justify-between">
+                  <span className="truncate mr-2">{shop.name}</span>
+                  <span className="text-gray-700 font-medium">{shop.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -208,13 +223,25 @@ export default function SchedulingOverview() {
     )
   }
 
-  // Prepare chart data
-  const chartData = data.dates.map(date => ({
-    date,
-    label: formatShortDate(date),
-    day: formatWeekday(date),
-    ...data.dailyCounts[date],
-  }))
+  // Prepare chart data with shop breakdown for tooltips
+  const chartData = data.dates.map(date => {
+    // Get shop breakdown for this date
+    const shopBreakdown = data.shopStats
+      .filter(shop => shop.dailyBreakdown[date] > 0)
+      .map(shop => ({
+        name: shop.shopName,
+        count: shop.dailyBreakdown[date],
+      }))
+      .sort((a, b) => b.count - a.count) // Sort by count desc
+    
+    return {
+      date,
+      label: formatShortDate(date),
+      day: formatWeekday(date),
+      ...data.dailyCounts[date],
+      shopBreakdown,
+    }
+  })
 
   const coverageColorClass = 
     data.overview.daysOfCoverage >= 14 ? 'bg-green-100 text-green-800 border-green-200' :
