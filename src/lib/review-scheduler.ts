@@ -150,7 +150,7 @@ function findNextAvailableSlot(
   startFrom: Date,
   settings: ShopScheduleSettings,
   scheduledTimes: Date[],
-  maxDaysAhead: number = 14
+  maxDaysAhead: number = 42 // 6 weeks ahead
 ): Date | null {
   const current = new Date(startFrom)
   const maxDate = new Date(startFrom)
@@ -233,7 +233,7 @@ export async function scheduleReviewsForShop(
   weekStart.setHours(0, 0, 0, 0)
   
   const weekEnd = new Date(weekStart)
-  weekEnd.setDate(weekEnd.getDate() + 21) // Look 3 weeks ahead
+  weekEnd.setDate(weekEnd.getDate() + 49) // Look 7 weeks ahead
   weekEnd.setHours(23, 59, 59, 999)
 
   const existingScheduled = await getScheduledReviewsInRange(shopId, weekStart, weekEnd)
