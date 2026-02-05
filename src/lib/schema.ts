@@ -37,6 +37,7 @@ export const products = pgTable('products', {
   category: text('category'),
   price: decimal('price', { precision: 10, scale: 2 }),
   imageUrl: text('image_url'),
+  url: text('url'), // External product URL on the shop
   reviewCount: integer('review_count').default(0),
   avgRating: decimal('avg_rating', { precision: 2, scale: 1 }),
   priority: integer('priority').default(0),

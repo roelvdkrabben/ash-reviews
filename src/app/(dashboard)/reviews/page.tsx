@@ -141,9 +141,20 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
                       </span>
                     )}
                     {product && (
-                      <span className="text-xs text-gray-600">
-                        {product.name}
-                      </span>
+                      product.url ? (
+                        <a 
+                          href={product.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          {product.name}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-600">
+                          {product.name}
+                        </span>
+                      )
                     )}
                   </div>
                   

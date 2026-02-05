@@ -26,6 +26,7 @@ export interface ProductSyncData {
   category: string | null
   price: string | null
   imageUrl: string | null
+  url: string | null
   syncedAt: Date
 }
 
@@ -34,8 +35,19 @@ export interface ProductSyncData {
  */
 function mapLightspeedProduct(
   lsProduct: LightspeedProduct,
+  shopDomain: string,
   defaultPrice?: number
 ): ProductSyncData {
+  // Construct full URL from shop domain + product path
+  let fullUrl: string | null = null
+  if (lsProduct.url) {
+    // Lightspeed returns relative URL like "/product-name.html"
+    // Combine with shop domain to get full URL
+    const cleanDomain = shopDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+    const productPath = lsProduct.url.startsWith('/') ? lsProduct.url : `/${lsProduct.url}`
+    fullUrl = `https://${cleanDomain}${productPath}`
+  }
+
   return {
     externalId: String(lsProduct.id),
     name: lsProduct.fulltitle || lsProduct.title,
@@ -43,6 +55,7 @@ function mapLightspeedProduct(
     category: null, // Categories need separate fetch, kept simple for now
     price: defaultPrice ? String(defaultPrice) : null,
     imageUrl: lsProduct.image?.src || null,
+    url: fullUrl,
     syncedAt: new Date(),
   }
 }
@@ -136,7 +149,7 @@ export async function syncProducts(shopId: string): Promise<SyncResult> {
         // Ignore variant fetch errors, continue without price
       }
 
-      const productData = mapLightspeedProduct(lsProduct, price)
+      const productData = mapLightspeedProduct(lsProduct, shop.domain, price)
       const existingId = existingMap.get(productData.externalId)
 
       if (existingId) {
@@ -149,6 +162,7 @@ export async function syncProducts(shopId: string): Promise<SyncResult> {
             category: productData.category,
             price: productData.price,
             imageUrl: productData.imageUrl,
+            url: productData.url,
             syncedAt: productData.syncedAt,
           })
           .where(eq(products.id, existingId))
@@ -163,6 +177,7 @@ export async function syncProducts(shopId: string): Promise<SyncResult> {
           category: productData.category,
           price: productData.price,
           imageUrl: productData.imageUrl,
+          url: productData.url,
           syncedAt: productData.syncedAt,
         })
         created++
