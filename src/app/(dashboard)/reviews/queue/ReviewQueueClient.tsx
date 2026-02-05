@@ -215,20 +215,31 @@ export function ReviewQueueClient({ reviews: initialReviews, shops, currentShopF
           </div>
 
           {/* Selection controls */}
-          <div className="flex items-center gap-2 border-l pl-4">
-            <span className="text-sm text-gray-600">{selectedIds.size} geselecteerd</span>
-            <button
-              onClick={selectAll}
-              className="text-sm text-blue-600 hover:text-blue-700"
-            >
-              Alles
-            </button>
-            <button
-              onClick={deselectAll}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              Geen
-            </button>
+          <div className="flex items-center gap-3 border-l pl-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedIds.size === reviewList.length && reviewList.length > 0}
+                ref={(el) => {
+                  if (el) {
+                    el.indeterminate = selectedIds.size > 0 && selectedIds.size < reviewList.length
+                  }
+                }}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    selectAll()
+                  } else {
+                    deselectAll()
+                  }
+                }}
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-600">
+                {selectedIds.size === 0 
+                  ? 'Alles selecteren' 
+                  : `${selectedIds.size}/${reviewList.length} geselecteerd`}
+              </span>
+            </label>
           </div>
         </div>
 
