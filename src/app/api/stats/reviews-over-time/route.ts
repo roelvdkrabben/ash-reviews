@@ -33,26 +33,8 @@ export async function GET(request: NextRequest) {
       name: shops.name,
     }).from(shops)
 
-    // 1. Get POSTED reviews grouped by posted_at date and shop
-    const postedReviews = await db
-      .select({
-        date: sql<string>`DATE(${reviews.postedAt})`.as('date'),
-        shopId: reviews.shopId,
-        count: sql<number>`COUNT(*)`.as('count'),
-      })
-      .from(reviews)
-      .where(
-        and(
-          eq(reviews.status, 'posted'),
-          isNotNull(reviews.postedAt),
-          gte(reviews.postedAt, startDate)
-        )
-      )
-      .groupBy(sql`DATE(${reviews.postedAt})`, reviews.shopId)
-      .orderBy(sql`DATE(${reviews.postedAt})`)
-
-    // 2. Get IMPORTED reviews grouped by postedAt (if exists) or createdAt
-    const importedReviews = await db
+    // 1. Get PAST reviews (posted + imported combined) - everything that's already "done"
+    const pastReviews = await db
       .select({
         date: sql<string>`DATE(COALESCE(${reviews.postedAt}, ${reviews.createdAt}))`.as('date'),
         shopId: reviews.shopId,
@@ -61,14 +43,19 @@ export async function GET(request: NextRequest) {
       .from(reviews)
       .where(
         and(
-          eq(reviews.status, 'imported'),
+          or(
+            eq(reviews.status, 'posted'),
+            eq(reviews.status, 'imported')
+          ),
           or(
             gte(reviews.postedAt, startDate),
             and(
               sql`${reviews.postedAt} IS NULL`,
               gte(reviews.createdAt, startDate)
             )
-          )
+          ),
+          // Only include up to today
+          lte(sql`COALESCE(${reviews.postedAt}, ${reviews.createdAt})`, today)
         )
       )
       .groupBy(sql`DATE(COALESCE(${reviews.postedAt}, ${reviews.createdAt}))`, reviews.shopId)
@@ -120,16 +107,10 @@ export async function GET(request: NextRequest) {
     const allLabels = [...pastLabels, ...futureLabels]
 
     // Create maps for quick lookup
-    const postedMap = new Map<string, number>()
-    postedReviews.forEach(row => {
+    const pastMap = new Map<string, number>()
+    pastReviews.forEach(row => {
       const key = `${row.date}_${row.shopId}`
-      postedMap.set(key, Number(row.count))
-    })
-
-    const importedMap = new Map<string, number>()
-    importedReviews.forEach(row => {
-      const key = `${row.date}_${row.shopId}`
-      importedMap.set(key, Number(row.count))
+      pastMap.set(key, Number(row.count))
     })
 
     const scheduledMap = new Map<string, number>()
@@ -138,16 +119,11 @@ export async function GET(request: NextRequest) {
       scheduledMap.set(key, Number(row.count))
     })
 
-    // Build datasets for each shop with all three types
+    // Build datasets for each shop - past (solid) and future (dashed)
     const datasets = allShops.map(shop => {
-      const postedData = allLabels.map(date => {
+      const pastData = allLabels.map(date => {
         const key = `${date}_${shop.id}`
-        return postedMap.get(key) || 0
-      })
-      
-      const importedData = allLabels.map(date => {
-        const key = `${date}_${shop.id}`
-        return importedMap.get(key) || 0
+        return pastMap.get(key) || 0
       })
 
       const scheduledData = allLabels.map(date => {
@@ -158,8 +134,7 @@ export async function GET(request: NextRequest) {
       return {
         shopId: shop.id,
         shopName: shop.name,
-        posted: postedData,
-        imported: importedData,
+        past: pastData,
         scheduled: scheduledData,
       }
     })

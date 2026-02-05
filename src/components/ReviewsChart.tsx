@@ -28,8 +28,7 @@ const SHOP_COLORS = [
 interface Dataset {
   shopId: string
   shopName: string
-  posted: number[]
-  imported: number[]
+  past: number[]
   scheduled: number[]
 }
 
@@ -83,15 +82,11 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
     }
     
     data.datasets.forEach(dataset => {
-      // Posted reviews - only show for past/today
-      const postedValue = dataset.posted[index]
-      point[`${dataset.shopName}_posted`] = index <= data.todayIndex && postedValue > 0 ? postedValue : null
+      // Past reviews (solid) - only show for past/today
+      const pastValue = dataset.past[index]
+      point[`${dataset.shopName}_past`] = index <= data.todayIndex && pastValue > 0 ? pastValue : null
       
-      // Imported reviews - only show for past/today
-      const importedValue = dataset.imported[index]
-      point[`${dataset.shopName}_imported`] = index <= data.todayIndex && importedValue > 0 ? importedValue : null
-      
-      // Scheduled reviews - only show for future
+      // Scheduled reviews (dashed) - only show for future
       const scheduledValue = dataset.scheduled[index]
       point[`${dataset.shopName}_scheduled`] = index > data.todayIndex && scheduledValue > 0 ? scheduledValue : null
     })
@@ -100,8 +95,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
   }) || []
 
   // Check if we have any data for each type
-  const hasPosted = data?.datasets.some(d => d.posted.some(v => v > 0)) ?? false
-  const hasImported = data?.datasets.some(d => d.imported.some(v => v > 0)) ?? false
+  const hasPast = data?.datasets.some(d => d.past.some(v => v > 0)) ?? false
   const hasScheduled = data?.datasets.some(d => d.scheduled.some(v => v > 0)) ?? false
 
   if (loading) {
@@ -143,8 +137,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Reviews over tijd</h2>
           <p className="text-sm text-gray-500 mt-1">
-            {hasPosted && <span className="mr-3">━ Geplaatst</span>}
-            {hasImported && <span className="mr-3 text-gray-400">━ Geïmporteerd</span>}
+            {hasPast && <span className="mr-3">━ Geplaatst</span>}
             {hasScheduled && <span className="mr-3">╌╌ Ingepland</span>}
           </p>
         </div>
@@ -201,7 +194,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
                 const parts = nameStr.split('_')
                 const type = parts.pop()
                 const shopName = parts.join('_')
-                const typeLabel = type === 'posted' ? 'Geplaatst' : type === 'imported' ? 'Geïmporteerd' : 'Ingepland'
+                const typeLabel = type === 'scheduled' ? 'Ingepland' : 'Geplaatst'
                 return [value, `${shopName} (${typeLabel})`]
               }}
             />
@@ -210,7 +203,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
                 const parts = value.split('_')
                 const type = parts.pop()
                 const shopName = parts.join('_')
-                const typeLabel = type === 'posted' ? '' : type === 'imported' ? ' (imp)' : ' (plan)'
+                const typeLabel = type === 'scheduled' ? ' (plan)' : ''
                 return `${shopName}${typeLabel}`
               }}
             />
@@ -229,14 +222,14 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
               const color = SHOP_COLORS[index % SHOP_COLORS.length]
               const lines = []
               
-              // Posted reviews - solid line
-              if (hasPosted) {
+              // Past reviews - solid line
+              if (hasPast) {
                 lines.push(
                   <Line
-                    key={`${dataset.shopId}_posted`}
+                    key={`${dataset.shopId}_past`}
                     type="monotone"
-                    dataKey={`${dataset.shopName}_posted`}
-                    name={`${dataset.shopName}_posted`}
+                    dataKey={`${dataset.shopName}_past`}
+                    name={`${dataset.shopName}_past`}
                     stroke={color}
                     strokeWidth={2}
                     dot={{ r: 3 }}
@@ -246,25 +239,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
                 )
               }
               
-              // Imported reviews - solid line, slightly transparent
-              if (hasImported) {
-                lines.push(
-                  <Line
-                    key={`${dataset.shopId}_imported`}
-                    type="monotone"
-                    dataKey={`${dataset.shopName}_imported`}
-                    name={`${dataset.shopName}_imported`}
-                    stroke={color}
-                    strokeWidth={2}
-                    strokeOpacity={0.5}
-                    dot={{ r: 3, fillOpacity: 0.5 }}
-                    activeDot={{ r: 5 }}
-                    connectNulls={false}
-                  />
-                )
-              }
-              
-              // Scheduled reviews - dashed line
+              // Scheduled reviews - dashed line (same color, continues the shop's story)
               if (hasScheduled) {
                 lines.push(
                   <Line
