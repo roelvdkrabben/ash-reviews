@@ -31,7 +31,7 @@ function getModel() {
     console.error('[ReviewGenerator] GEMINI_API_KEY is not set!')
     throw new Error('GEMINI_API_KEY environment variable is required')
   }
-  console.log('[ReviewGenerator] Initializing Gemini with key:', apiKey.substring(0, 10) + '...')
+  // API key verified - initializing client
   const genAI = new GoogleGenerativeAI(apiKey)
   return genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 }

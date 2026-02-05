@@ -23,11 +23,11 @@ interface ShopGenerationResult {
  * Protected by CRON_SECRET header
  */
 export async function GET(request: Request) {
-  // Verify cron secret
+  // Verify cron secret (fail-closed: reject if not configured)
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
   
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
