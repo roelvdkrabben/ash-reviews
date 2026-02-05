@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { reviews, shops } from '@/lib/schema'
-import { sql, gte, and, eq, isNotNull, gt, or } from 'drizzle-orm'
+import { sql, gte, lte, and, eq, isNotNull, gt, or } from 'drizzle-orm'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       .groupBy(sql`DATE(COALESCE(${reviews.postedAt}, ${reviews.createdAt}))`, reviews.shopId)
       .orderBy(sql`DATE(COALESCE(${reviews.postedAt}, ${reviews.createdAt}))`)
 
-    // 3. Get SCHEDULED reviews (approved with scheduledAt in the future)
+    // 3. Get SCHEDULED reviews (approved with scheduledAt in the future, limited to futureEndDate)
     const scheduledReviews = await db
       .select({
         date: sql<string>`DATE(${reviews.scheduledAt})`.as('date'),
@@ -86,7 +86,8 @@ export async function GET(request: NextRequest) {
         and(
           eq(reviews.status, 'approved'),
           isNotNull(reviews.scheduledAt),
-          gt(reviews.scheduledAt, today)
+          gt(reviews.scheduledAt, today),
+          lte(reviews.scheduledAt, futureEndDate)
         )
       )
       .groupBy(sql`DATE(${reviews.scheduledAt})`, reviews.shopId)
