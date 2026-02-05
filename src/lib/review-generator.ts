@@ -36,6 +36,58 @@ function getModel() {
   return genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 }
 
+// Verschillende persona's voor variatie
+const REVIEWER_PERSONAS = [
+  {
+    name: 'de_praktische',
+    description: 'Een praktisch ingesteld persoon die focust op functionaliteit',
+    style: 'Schrijf nuchter en to-the-point. Focus op of het product doet wat het moet doen.',
+    example: 'Doet wat het moet doen. Past precies, goede kwaliteit.'
+  },
+  {
+    name: 'de_techneut',
+    description: 'Iemand die van specificaties en details houdt',
+    style: 'Noem technische details of specificaties. Wees informatief voor andere kopers.',
+    example: 'Capaciteit klopt met de specs. Laadt snel op, houdt goed z\'n spanning.'
+  },
+  {
+    name: 'de_vergelijker',
+    description: 'Iemand die dit product vergelijkt met vorige aankopen',
+    style: 'Vergelijk kort met een vorig product of merk (zonder specifieke namen).',
+    example: 'Beter dan m\'n vorige, gaat al 2 maanden mee zonder problemen.'
+  },
+  {
+    name: 'de_scepticus',
+    description: 'Iemand die eerst twijfelde maar overtuigd is',
+    style: 'Begin met een kleine twijfel of zorg, eindig positief.',
+    example: 'Was eerst niet zeker of dit zou passen, maar werkt perfect.'
+  },
+  {
+    name: 'de_hobbyist',
+    description: 'Iemand die het product voor een hobby/project gebruikt',
+    style: 'Vertel kort waarvoor je het gebruikt. Wees specifiek over de toepassing.',
+    example: 'Gebruik hem voor m\'n boot, prima accutje voor de buitenboordmotor.'
+  },
+  {
+    name: 'de_herhaler',
+    description: 'Iemand die vaker bij deze shop koopt',
+    style: 'Hint dat je vaker hier koopt of dit merk vaker gebruikt.',
+    example: 'Weer een goede aankoop hier. Derde keer dat ik dit merk neem.'
+  },
+  {
+    name: 'de_minimalist',
+    description: 'Iemand van weinig woorden',
+    style: 'Extreem kort. Max 1-2 zinnen. Geen poespas.',
+    example: 'Top. Precies wat ik zocht.'
+  },
+  {
+    name: 'de_helper',
+    description: 'Iemand die anderen wil helpen met de aankoop',
+    style: 'Geef een tip of advies voor andere kopers.',
+    example: 'Let op de maat, valt wat kleiner uit. Verder prima product.'
+  }
+]
+
 // Build review generation prompt
 function buildPrompt(input: ReviewInput, style: 'short' | 'medium' | 'long'): string {
   const { product, shop, existingReviews, targetRating } = input
@@ -44,62 +96,44 @@ function buildPrompt(input: ReviewInput, style: 'short' | 'medium' | 'long'): st
   
   const lengthGuide = {
     short: '1-2 zinnen, bondig en to-the-point',
-    medium: '3-4 zinnen, wat meer detail',
-    long: '5-7 zinnen, uitgebreide ervaring'
+    medium: '2-3 zinnen, wat meer detail',
+    long: '4-5 zinnen, uitgebreide ervaring'
   }
 
-  const styleGuide = [
-    'casual en vriendelijk, alsof je tegen een vriend praat',
-    'wat formeler, zakelijk maar positief',
-    'nuchter Nederlands, geen overdreven lovend',
-    'praktisch, focus op gebruiksgemak',
-    'kort en bondig, recht op het doel af'
-  ]
-  
-  const randomStyle = styleGuide[Math.floor(Math.random() * styleGuide.length)]
+  // Kies random persona
+  const persona = REVIEWER_PERSONAS[Math.floor(Math.random() * REVIEWER_PERSONAS.length)]
 
-  let prompt = `Je bent een Nederlandse consument die een product review schrijft. Schrijf een authentieke, geloofwaardige review.
+  let prompt = `Je schrijft een Nederlandse productreview vanuit het perspectief van: ${persona.description}
 
-**Product informatie:**
-- Naam: ${product.name}
-${product.description ? `- Beschrijving: ${product.description}` : ''}
+**Schrijfstijl:** ${persona.style}
+**Voorbeeld van deze stijl:** "${persona.example}"
+
+**Product:**
+- ${product.name}
+${product.description ? `- ${product.description}` : ''}
 ${product.category ? `- Categorie: ${product.category}` : ''}
 ${product.price ? `- Prijs: €${product.price}` : ''}
 
-**Shop context:**
-- Webshop: ${shop.name} (${shop.domain})
-
-**Review specificaties:**
-- Rating: ${rating} van de 5 sterren
+**Vereisten:**
+- Rating: ${rating}/5 sterren
 - Lengte: ${lengthGuide[style]}
-- Schrijfstijl: ${randomStyle}
-
-**Belangrijke regels:**
-1. Schrijf in natuurlijk Nederlands, zoals echte klanten schrijven
-2. Vermijd AI-achtige zinnen zoals "Ik ben zeer tevreden" of "Uitstekende kwaliteit"
-3. Noem specifieke eigenschappen of ervaringen met het product
-4. Kleine imperfecties in spelling/grammatica zijn OK (maar overdrijf niet)
-5. Geen onnodige superlatieven
-6. Geen vermelding van levertijd of verpakking tenzij relevant voor het product
-7. Focus op het product zelf, niet op de webshop
-8. GEEN uitroeptekens gebruiken! Nederlanders schrijven zelden met uitroeptekens
-9. Houd het bondig - korte reviews zijn vaak geloofwaardiger`
+- Taal: Natuurlijk Nederlands, zoals echte mensen schrijven
+- GEEN uitroeptekens
+- GEEN clichés als "zeer tevreden", "uitstekende kwaliteit", "aanrader"
+- GEEN vermelding van bezorging/verpakking
+- WEL: specifiek, geloofwaardig, menselijk`
 
   if (existingReviews && existingReviews.length > 0) {
     prompt += `
 
-**Inspiratie van bestaande reviews (gebruik als stijlreferentie, niet kopiëren):**
-${existingReviews.slice(0, 3).map((r, i) => `${i + 1}. ${r}`).join('\n')}`
+**Stijlreferentie (niet kopiëren):**
+${existingReviews.slice(0, 2).map((r, i) => `- ${r.substring(0, 100)}...`).join('\n')}`
   }
 
   prompt += `
 
-Geef je antwoord in exact dit JSON format (alleen JSON, geen andere tekst):
-{
-  "title": "Korte pakkende titel (max 50 karakters)",
-  "content": "De review tekst",
-  "rating": ${rating}
-}`
+Antwoord ALLEEN in JSON:
+{"title": "max 40 karakters", "content": "de review", "rating": ${rating}}`
 
   return prompt
 }
