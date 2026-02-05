@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import PrioritySliders from '@/components/PrioritySliders'
+import ScheduledReviewsTimeline from '@/components/ScheduledReviewsTimeline'
 import type { Shop } from '@/lib/schema'
 
 interface SyncResult {
@@ -431,6 +432,9 @@ export default function ShopDetailPage() {
           </div>
         </form>
       </div>
+
+      {/* Scheduled Reviews Timeline - Full Width */}
+      <ScheduledReviewsTimeline shopId={shopId} />
     </div>
   )
 }
