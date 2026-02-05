@@ -116,7 +116,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
   return (
     <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Reviews over tijd</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Geplaatste reviews</h2>
         <div className="flex gap-2">
           {[7, 30, 90].map(d => (
             <button

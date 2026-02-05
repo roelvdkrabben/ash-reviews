@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { reviews, shops } from '@/lib/schema'
-import { sql, gte, and } from 'drizzle-orm'
+import { sql, gte, and, eq, isNotNull } from 'drizzle-orm'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -25,21 +25,24 @@ export async function GET(request: NextRequest) {
       name: shops.name,
     }).from(shops)
 
-    // Get reviews grouped by date and shop
+    // Get POSTED reviews grouped by posted_at date and shop
+    // Only show reviews that have actually been posted to the website
     const reviewsData = await db
       .select({
-        date: sql<string>`DATE(${reviews.createdAt})`.as('date'),
+        date: sql<string>`DATE(${reviews.postedAt})`.as('date'),
         shopId: reviews.shopId,
         count: sql<number>`COUNT(*)`.as('count'),
       })
       .from(reviews)
       .where(
         and(
-          gte(reviews.createdAt, startDate)
+          eq(reviews.status, 'posted'),
+          isNotNull(reviews.postedAt),
+          gte(reviews.postedAt, startDate)
         )
       )
-      .groupBy(sql`DATE(${reviews.createdAt})`, reviews.shopId)
-      .orderBy(sql`DATE(${reviews.createdAt})`)
+      .groupBy(sql`DATE(${reviews.postedAt})`, reviews.shopId)
+      .orderBy(sql`DATE(${reviews.postedAt})`)
 
     // Generate all dates in range
     const labels: string[] = []
