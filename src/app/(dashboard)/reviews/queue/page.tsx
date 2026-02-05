@@ -4,6 +4,7 @@ import { desc, eq, and, asc } from 'drizzle-orm'
 import { ReviewQueueClient } from './ReviewQueueClient'
 import { ProductQueueClient } from './ProductQueueClient'
 import { QueueTabs } from './QueueTabs'
+import SchedulingOverview from '@/components/SchedulingOverview'
 
 interface PageProps {
   searchParams: Promise<{ shop?: string; tab?: string }>
@@ -128,6 +129,9 @@ export default async function ReviewQueuePage({ searchParams }: PageProps) {
           <p className="text-gray-600 mt-1">Beheer reviews en producten voor review generatie</p>
         </div>
       </div>
+
+      {/* Scheduling Overview Chart */}
+      <SchedulingOverview />
 
       {/* Tabs */}
       <QueueTabs 
