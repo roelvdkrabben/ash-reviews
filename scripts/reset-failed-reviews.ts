@@ -1,11 +1,10 @@
 /**
- * Run migration to add url column
+ * Reset failed reviews back to approved for retry
  */
 
 import fs from 'fs'
 import path from 'path'
 
-// Load .env.local
 const envPath = path.join(process.cwd(), '.env.local')
 if (fs.existsSync(envPath)) {
   const envContent = fs.readFileSync(envPath, 'utf-8')
@@ -21,24 +20,16 @@ if (fs.existsSync(envPath)) {
 }
 
 async function main() {
-  const { neon } = await import('@neondatabase/serverless')
-  
-  const sql = neon(process.env.DATABASE_URL!)
-  
-  console.log('Running migration: Add url column to products...')
-  
-  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS url TEXT`
-  
-  console.log('✅ Migration complete!')
-  
-  // Verify
-  const result = await sql`
-    SELECT column_name, data_type 
-    FROM information_schema.columns 
-    WHERE table_name = 'products' AND column_name = 'url'
-  `
-  console.log('Verification:', result)
-  
+  const { db } = await import('../src/lib/db')
+  const { reviews } = await import('../src/lib/schema')
+  const { eq } = await import('drizzle-orm')
+
+  const result = await db
+    .update(reviews)
+    .set({ status: 'approved', error: null })
+    .where(eq(reviews.status, 'failed'))
+
+  console.log('Reset failed reviews to approved status')
   process.exit(0)
 }
 
