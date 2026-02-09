@@ -53,7 +53,7 @@ export async function GET() {
         scheduledAt: reviews.scheduledAt,
         productId: reviews.productId,
         shopId: reviews.shopId,
-        productName: products.title,
+        productName: products.name,
         shopName: shops.name,
       })
       .from(reviews)
