@@ -195,7 +195,27 @@ export async function GET(request: Request) {
             ? error.message
             : 'Unknown error'
 
-        // Mark as failed
+        // Check if review was already posted to Lightspeed (has external_id)
+        // This can happen if the Lightspeed API succeeded but a later step failed
+        const currentReview = await db.select({ externalId: reviews.externalId })
+          .from(reviews)
+          .where(eq(reviews.id, review.id))
+          .limit(1)
+        
+        if (currentReview[0]?.externalId) {
+          // Review was already posted successfully, don't mark as failed
+          console.log(`[CRON] Review ${review.id} already has external_id ${currentReview[0].externalId}, keeping as posted`)
+          results.push({
+            reviewId: review.id,
+            productName: product.name,
+            shopName: shop.name,
+            success: true,
+            lightspeedId: currentReview[0].externalId,
+          })
+          continue
+        }
+
+        // Mark as failed only if not already posted
         await db
           .update(reviews)
           .set({

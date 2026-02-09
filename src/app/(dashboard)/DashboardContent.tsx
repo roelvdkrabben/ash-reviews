@@ -2,6 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { ReviewsChart } from '@/components/ReviewsChart'
+import Link from 'next/link'
+
+interface UpcomingReview {
+  id: string
+  reviewerName: string
+  rating: number
+  content: string
+  scheduledAt: string
+  productName: string | null
+  shopName: string | null
+}
 
 interface Stats {
   shops: number
@@ -12,6 +23,7 @@ interface Stats {
   failed: number
   imported: number
   totalGenerated: number
+  upcomingReviews: UpcomingReview[]
 }
 
 export function DashboardContent() {
@@ -106,6 +118,77 @@ export function DashboardContent() {
 
       {/* Reviews Over Time Chart */}
       <ReviewsChart />
+
+      {/* Coming Up Next */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">⏰ Coming Up Next</h2>
+          <Link 
+            href="/reviews/queue"
+            className="text-sm text-blue-600 hover:text-blue-700"
+          >
+            Alle bekijken →
+          </Link>
+        </div>
+        
+        {loading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-16 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : stats?.upcomingReviews && stats.upcomingReviews.length > 0 ? (
+          <div className="space-y-3">
+            {stats.upcomingReviews.map((review) => (
+              <Link
+                key={review.id}
+                href={`/reviews/${review.id}`}
+                className="block p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-gray-900">{review.reviewerName}</span>
+                      <span className="text-yellow-500">
+                        {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 truncate">{review.content}</p>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                      {review.shopName && <span>{review.shopName}</span>}
+                      {review.productName && (
+                        <>
+                          <span>•</span>
+                          <span className="truncate">{review.productName}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right ml-4 flex-shrink-0">
+                    <div className="text-sm font-medium text-purple-600">
+                      {new Date(review.scheduledAt).toLocaleDateString('nl-NL', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(review.scheduledAt).toLocaleTimeString('nl-NL', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <p>Geen geplande reviews</p>
+            <p className="text-sm mt-1">Reviews worden automatisch ingepland na goedkeuring</p>
+          </div>
+        )}
+      </div>
 
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow p-6">

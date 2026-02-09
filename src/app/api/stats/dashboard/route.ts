@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { reviews, shops, products } from '@/lib/schema'
-import { sql, eq } from 'drizzle-orm'
+import { sql, eq, and, gte, asc, isNotNull } from 'drizzle-orm'
 
 export async function GET() {
   const session = await auth()
@@ -42,6 +42,33 @@ export async function GET() {
                           (statusCounts['posted'] || 0) +
                           (statusCounts['failed'] || 0)
 
+    // Get next 5 scheduled reviews (approved with scheduledAt in future)
+    const now = new Date()
+    const upcomingReviews = await db
+      .select({
+        id: reviews.id,
+        reviewerName: reviews.reviewerName,
+        rating: reviews.rating,
+        content: reviews.content,
+        scheduledAt: reviews.scheduledAt,
+        productId: reviews.productId,
+        shopId: reviews.shopId,
+        productName: products.title,
+        shopName: shops.name,
+      })
+      .from(reviews)
+      .leftJoin(products, eq(reviews.productId, products.id))
+      .leftJoin(shops, eq(reviews.shopId, shops.id))
+      .where(
+        and(
+          eq(reviews.status, 'approved'),
+          isNotNull(reviews.scheduledAt),
+          gte(reviews.scheduledAt, now)
+        )
+      )
+      .orderBy(asc(reviews.scheduledAt))
+      .limit(5)
+
     return NextResponse.json({
       shops: Number(shopCount?.count || 0),
       products: Number(productCount?.count || 0),
@@ -51,6 +78,15 @@ export async function GET() {
       failed: statusCounts['failed'] || 0,
       imported: statusCounts['imported'] || 0,
       totalGenerated,
+      upcomingReviews: upcomingReviews.map(r => ({
+        id: r.id,
+        reviewerName: r.reviewerName,
+        rating: r.rating,
+        content: r.content?.substring(0, 100) + (r.content && r.content.length > 100 ? '...' : ''),
+        scheduledAt: r.scheduledAt,
+        productName: r.productName,
+        shopName: r.shopName,
+      })),
     })
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
