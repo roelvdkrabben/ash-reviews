@@ -28,6 +28,7 @@ interface Dataset {
   shopId: string
   shopName: string
   past: number[]
+  scheduled: number[]
 }
 
 interface ChartData {
@@ -80,15 +81,16 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
     
     data.datasets.forEach(dataset => {
       const pastValue = dataset.past[index]
-      // Show 0 for days without reviews (shows dot on the line)
+      const scheduledValue = dataset.scheduled[index]
       point[`${dataset.shopName}`] = pastValue || 0
+      point[`${dataset.shopName} (gepland)`] = scheduledValue || 0
     })
     
     return point
   }) || []
 
   // Check if we have any data
-  const hasData = data?.datasets.some(d => d.past.some(v => v > 0)) ?? false
+  const hasData = data?.datasets.some(d => d.past.some(v => v > 0) || d.scheduled.some(v => v > 0)) ?? false
 
   if (loading) {
     return (
@@ -123,7 +125,7 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Reviews over tijd</h2>
-          <p className="text-sm text-gray-500 mt-1">Geplaatste reviews per shop</p>
+          <p className="text-sm text-gray-500 mt-1">Geplaatste reviews per shop (gepland = gestreept)</p>
         </div>
         <div className="flex gap-2">
           {[7, 30, 90].map(d => (
@@ -181,22 +183,37 @@ export function ReviewsChart({ className }: ReviewsChartProps) {
             {data.datasets.map((dataset, index) => {
               const color = SHOP_COLORS[index % SHOP_COLORS.length]
               
-              // Only show shops that have data
-              const hasShopData = dataset.past.some(v => v > 0)
-              if (!hasShopData) return null
+              const hasPostedData = dataset.past.some(v => v > 0)
+              const hasScheduledData = dataset.scheduled.some(v => v > 0)
+              if (!hasPostedData && !hasScheduledData) return null
               
-              return (
-                <Line
-                  key={dataset.shopId}
-                  type="monotone"
-                  dataKey={dataset.shopName}
-                  name={dataset.shopName}
-                  stroke={color}
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: color }}
-                  activeDot={{ r: 6 }}
-                />
-              )
+              return [
+                hasPostedData && (
+                  <Line
+                    key={`${dataset.shopId}-posted`}
+                    type="monotone"
+                    dataKey={dataset.shopName}
+                    name={dataset.shopName}
+                    stroke={color}
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: color }}
+                    activeDot={{ r: 6 }}
+                  />
+                ),
+                hasScheduledData && (
+                  <Line
+                    key={`${dataset.shopId}-scheduled`}
+                    type="monotone"
+                    dataKey={`${dataset.shopName} (gepland)`}
+                    name={`${dataset.shopName} (gepland)`}
+                    stroke={color}
+                    strokeWidth={2}
+                    strokeDasharray="6 3"
+                    dot={{ r: 3, fill: color, strokeDasharray: '' }}
+                    activeDot={{ r: 5 }}
+                  />
+                ),
+              ]
             })}
           </LineChart>
         </ResponsiveContainer>

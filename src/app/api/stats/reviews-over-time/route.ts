@@ -55,20 +55,52 @@ export async function GET(request: NextRequest) {
       .groupBy(sql`DATE(COALESCE(${reviews.postedAt}, ${reviews.createdAt}))`, reviews.shopId)
       .orderBy(sql`DATE(COALESCE(${reviews.postedAt}, ${reviews.createdAt}))`)
 
-    // Generate date labels for the selected period
+    // Get scheduled reviews (approved, waiting to be posted)
+    const scheduledReviews = await db
+      .select({
+        date: sql<string>`DATE(${reviews.scheduledAt})`.as('date'),
+        shopId: reviews.shopId,
+        count: sql<number>`COUNT(*)`.as('count'),
+      })
+      .from(reviews)
+      .where(
+        and(
+          eq(reviews.status, 'approved'),
+          sql`${reviews.scheduledAt} IS NOT NULL`,
+          gte(reviews.scheduledAt, startDate)
+        )
+      )
+      .groupBy(sql`DATE(${reviews.scheduledAt})`, reviews.shopId)
+      .orderBy(sql`DATE(${reviews.scheduledAt})`)
+
+    // Find the furthest scheduled date to extend labels into the future
+    const endDate = new Date(today)
+    scheduledReviews.forEach(row => {
+      const d = new Date(row.date)
+      if (d > endDate) endDate.setTime(d.getTime())
+    })
+    endDate.setHours(23, 59, 59, 999)
+
+    // Generate date labels for the full period (past + future scheduled)
     const labels: string[] = []
     const currentDate = new Date(startDate)
     
-    while (currentDate <= today) {
+    while (currentDate <= endDate) {
       labels.push(currentDate.toISOString().split('T')[0])
       currentDate.setDate(currentDate.getDate() + 1)
     }
 
-    // Create map for quick lookup
+    // Create maps for quick lookup
     const pastMap = new Map<string, number>()
     pastReviews.forEach(row => {
       const key = `${row.date}_${row.shopId}`
       pastMap.set(key, Number(row.count))
+    })
+
+    const scheduledMap = new Map<string, number>()
+    scheduledReviews.forEach(row => {
+      const key = `${row.date}_${row.shopId}`
+      scheduledMap.set(key, Number(row.count))
     })
 
     // Build datasets for each shop
@@ -78,10 +110,16 @@ export async function GET(request: NextRequest) {
         return pastMap.get(key) || 0
       })
       
+      const scheduledData = labels.map(date => {
+        const key = `${date}_${shop.id}`
+        return scheduledMap.get(key) || 0
+      })
+      
       return {
         shopId: shop.id,
         shopName: shop.name,
         past: pastData,
+        scheduled: scheduledData,
       }
     })
 
